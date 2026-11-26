@@ -11,6 +11,7 @@ import { sparkline, meter, bar } from "./charts.js";
 import { popSeries, rankCount, resourceValue, LAND } from "./model.js";
 import { citizensHtml, mountCitizens } from "./citizens.js";
 import { badgeHtml, cityDistricts, districtsHtml } from "./districts.js";
+import { historyHtml, populationSeries, yearSpark } from "./history.js";
 
 const TABS = [
   ["citizens", "Citizens", "pop"],
@@ -125,7 +126,7 @@ function citizens(m) {
     <div class="cv-card">
       <div class="cv-card-h"><span>Population ${series.length ? `${series[0].year}–${series.at(-1).year}` : ""}</span>${
         ch != null ? `<span class="${ch >= 0 ? "good" : "bad"}">${signed(ch)}</span>` : ""}</div>
-      ${sparkline(series, { fmt: (v) => popShort(v), title: `Population of ${c.name} by year` })}
+      <div data-popspark>${sparkline(series, { fmt: (v) => popShort(v), title: `Population of ${c.name} by year` })}</div>
       <p class="cv-note">Eurostat population on 1 January, on today's NUTS 3 borders.</p>
     </div>
     <div class="cv-stats">
@@ -217,6 +218,8 @@ function economy(m) {
     </div>
     <h4 class="cv-h4">Yields <span class="muted">rank among metros</span></h4>
     <div class="cv-yields">${yields}</div>
+    <h4 class="cv-h4">Since 2000 <span class="muted">yearly series</span></h4>
+    <div data-history><p class="muted cv-note">Loading yearly series…</p></div>
     <h4 class="cv-h4">GDP by industry <span class="muted">tick = U.S. share</span></h4>
     ${gi.length ? `<div class="cv-inds">${gi.slice(0, 8).map(gdpRow).join("")}</div>
       ${gi.length > 8 ? `<details class="cv-more"><summary>All ${gi.length} industries</summary><div class="cv-inds">${gi.slice(8).map(gdpRow).join("")}</div></details>` : ""}`
@@ -420,6 +423,24 @@ export function render(el, m, h) {
     typeSlot.innerHTML = badgeHtml(m, dd ?? null);
     h.onDistricts?.(dd ? cityDistricts(dd, mil, m.city.id) : []);
   }, () => { if (dHost.isConnected) dHost.innerHTML = districtsHtml(m, null, null); });
+
+  // Yearly series (the time dial's history.json): GDP vs EU average and jobs since 2000, and a longer population line.
+  const hHost = el.querySelector("[data-history]");
+  Promise.resolve(h.loadData?.("history")).then((H) => {
+    if (!hHost.isConnected) return;
+    hHost.innerHTML = historyHtml(m, H ?? null);
+    const ps = populationSeries(m, H ?? null);
+    const cur = popSeries(m.city);
+    const pHost = el.querySelector("[data-popspark]");
+    if (pHost && ps.length > cur.length && ps[0].year < (cur[0]?.year ?? 9999)) {
+      pHost.innerHTML = yearSpark(ps, { fmt: (v) => popShort(v), title: `Population of ${m.city.name} by year` });
+      const hd = pHost.closest(".cv-card")?.querySelector(".cv-card-h span");
+      if (hd) hd.textContent = `Population ${ps[0].year}–${ps.at(-1).year}`;
+      const chEl = pHost.closest(".cv-card")?.querySelector(".cv-card-h span:nth-child(2)");
+      const ch = ps.at(-1).value / ps[0].value - 1;
+      if (chEl) { chEl.textContent = signed(ch); chEl.className = ch >= 0 ? "good" : "bad"; }
+    }
+  }, () => { if (hHost.isConnected) hHost.innerHTML = historyHtml(m, null); });
 
   // Member counties arrive with counties.json (loaded once, on demand).
   const host = el.querySelector("[data-counties]");

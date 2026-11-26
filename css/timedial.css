@@ -1,0 +1,40 @@
+/* Time dial (js/ext/timeDial): sits in #lens-area above the legend. */
+.td-pill {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font: 500 12px var(--sans); color: var(--ink);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.4);
+}
+.td-pill:hover { border-color: var(--gold); color: var(--gold-bright); }
+.time-dial { width: 420px; max-width: 100%; padding: 8px 10px 8px; display: grid; gap: 6px; }
+.td-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.td-row2 { justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.td-play {
+  width: 32px; height: 32px; border-radius: 50%; flex: none; cursor: pointer; font-size: 12px; color: var(--gold-bright);
+  background: #1b2838; border: 1px solid var(--gold);
+}
+.td-play:hover { background: #24364b; }
+.td-turn { font-family: var(--serif); font-size: 13px; color: var(--ink-dim); flex: none; min-width: 74px; }
+.td-turn b { font-size: 21px; color: var(--gold-bright); font-weight: 600; letter-spacing: .02em; }
+.td-track { flex: 1; min-width: 0; position: relative; padding-bottom: 13px; }
+.td-range { width: 100%; margin: 0; accent-color: var(--gold); cursor: pointer; }
+.td-ticks { position: absolute; left: 7px; right: 7px; bottom: 0; height: 12px; font-size: 10px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.td-ticks span { position: absolute; transform: translateX(-50%); }
+.td-close { width: 22px; height: 22px; font-size: 11px; flex: none; }
+.td-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: none; }
+.td-seg button { background: transparent; border: 0; color: var(--ink-dim); padding: 3px 9px; font: 500 11.5px var(--sans); cursor: pointer; }
+.td-seg button + button { border-left: 1px solid rgba(201,164,92,.25); }
+.td-seg button[aria-pressed="true"] { background: var(--gold); color: #131e2a; }
+.td-src { font-size: 10.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: right; }
+.td-beat { font-size: 12px; line-height: 1.4; display: grid; gap: 3px; border-bottom: 1px solid rgba(201,164,92,.2); padding-bottom: 6px; min-height: 2.8em; }
+.td-beat[hidden] { display: none; }
+.td-beat p { margin: 0; }
+.td-note { font-family: var(--serif); font-size: 13px; color: var(--ink); }
+.td-mv { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-mv b { color: var(--gold-bright); font-weight: 600; }
+.td-num { font-variant-numeric: tabular-nums; color: var(--ink-dim); }
+.td-geo { background: none; border: 0; padding: 0; color: var(--gold-bright); font: inherit; cursor: pointer; text-decoration: underline dotted rgba(236,208,142,.5); text-underline-offset: 2px; }
+.td-geo:hover { text-decoration-style: solid; }
+@media (max-width: 700px) {
+  .time-dial { width: 100%; }
+  .td-src { display: none; }
+}

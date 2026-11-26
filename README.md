@@ -53,6 +53,7 @@ python3 build_lenses.py
 python3 build_sites.py
 python3 build_people.py
 python3 build_sources.py
+python3 build_history.py   # yearly series for the time dial (data/history.json) and the GDP vs EU average lens
 ```
 
 Every source, with links and licences, is listed in the in-app Almanac (`data/sources.json`).
