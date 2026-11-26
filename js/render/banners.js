@@ -617,18 +617,21 @@ export function drawBanners(ctx, cam, w, state, yields, nation = state.nation) {
     let tiered = showYields && m.parts.length > 0 && tierOk;
     const badge0 = badges && showYields ? badgeFor(badges, city) : null;
     let width, height, x, y, rect, ptr, tab;
-    const layout = () => {
+    // side: 0 centres the plate over the city; +1 / -1 slide it right / left so it starts / ends at the city
+    // (the pointer still aims at the city), for neighbours whose centred plates would collide (København and Malmö).
+    const layout = (side = 0) => {
       width = Math.ceil(tiered ? Math.max(m.plateW, m.tierW + 12) : m.plateW);
       height = L.h + (tiered ? L.yieldH - 2 : 0);
-      x = Math.round(sx - width / 2);
+      x = Math.round(side === 0 ? sx - width / 2 : side > 0 ? sx - 12 : sx - width + 12);
       // A city near the screen edge keeps its whole plate on screen; the pointer still aims at the city.
-      ptr = null;
+      ptr = side === 0 ? null : side > 0 ? 12 : width - 12;
       if (sx >= bx0 - 24 && sx <= bx1 + 24 && bx1 - bx0 > width + 16) {
         const cx = Math.max(bx0 + EDGE, Math.min(bx1 - EDGE - width, x));
         if (cx !== x) {
           x = cx;
           ptr = Math.round(Math.max(9, Math.min(width - 9, sx - x))); // at the plate's end when the city is just off screen
         }
+        if (ptr != null && ptr === Math.round(width / 2)) ptr = null;
       }
       // Full city tiles (towers, the capitol dome) stand taller than a dot: lift the plate clear of them.
       y = Math.round(sy - Math.max(10, Rpx * (cityIsDot(city, Rpx) ? 0.55 : 0.75)) - height);
@@ -640,6 +643,8 @@ export function drawBanners(ctx, cam, w, state, yields, nation = state.nation) {
       tiered = false; // no room for the yield row: try the one-line plate
       layout();
     }
+    if (blocked(rect)) layout(1); // still no room: slide it to one side of the city, then the other
+    if (blocked(rect)) layout(-1);
     if (blocked(rect)) continue;
     placed.push(rect);
     const onScreen = x + width > 0 && x < cam.w && y + height > 0 && y < cam.h;
