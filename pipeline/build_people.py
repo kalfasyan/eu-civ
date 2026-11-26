@@ -102,6 +102,29 @@ for g, t in sbs.items():
 eu_total = sum(eu_t[s] for s in SECTIONS)
 
 
+def city_share(c):
+    """Towns and single-place cities show the municipality's population, not their region's: scale counts to match."""
+    rp = c.get('region_population')
+    return c['population'] / rp if rp else 1.0
+
+
+def scale_counts(o, f, keys):
+    if f == 1.0:
+        return o
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if k in keys and isinstance(v, (int, float)) and not isinstance(v, bool):
+                o[k] = round(v * f)
+            elif k in keys and isinstance(v, dict):
+                o[k] = {a: (round(b * f) if isinstance(b, (int, float)) else b) for a, b in v.items()}
+            elif isinstance(v, (dict, list)):
+                scale_counts(v, f, keys)
+    elif isinstance(o, list):
+        for x in o:
+            scale_counts(x, f, keys)
+    return o
+
+
 def metro_profile(c):
     w = defaultdict(float)
     for r in c['counties']:
@@ -177,6 +200,7 @@ for c in cities:
                 top.append({'naics': k, 'emp': round(v), 'lq': round(l2, 2), 'avg_pay': None, 'oty_pct': None, 'suppressed': 0, 'lower_bound': False})
     top.sort(key=lambda t: -t['lq'])
     dcities[c['id']] = {'emp': round(tot), 'avg_pay': None, 'counties': [len(c['counties']), len(c['counties'])], 'top': top[:8], 'districts': dl, 'badge': badge}
+    scale_counts(dcities[c['id']], city_share(c), ('emp', 'jobs'))
 
 catalog = []
 for cat in CATALOG:
@@ -349,6 +373,10 @@ for c in cities:
     hi = sorted([s for s in specs if s['ratio'] >= 1.5], key=lambda s: -s['ratio'])[:4]
     lo = sorted([s for s in specs if s['ratio'] <= 0.67], key=lambda s: s['ratio'])[:2]
     r['specialists'] = hi + lo
+    f = city_share(c)
+    for rk in ('workforce', 'age', 'education', 'nativity'):
+        if r.get(rk):
+            scale_counts(r[rk], f, ('total', 'counts'))
     r['reliable'] = True
     crow[c['id']] = r
 groups = {

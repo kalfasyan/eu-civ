@@ -4,7 +4,7 @@ from collections import defaultdict
 import numpy as np
 import openpyxl, shapely
 from shapely.geometry import shape, Point
-import es, uk
+import es, uk, lau
 from common import *
 
 meta, proj, grid = world_ctx()
@@ -573,14 +573,16 @@ for f in places:
     r = hit[0]
     key = (bool(pr.get('adm0cap')), pm)
     if r not in best_place or key > best_place[r][0]:
-        best_place[r] = (key, pr.get('name'), lon, lat, bool(pr.get('adm0cap')))
+        best_place[r] = (key, pr.get('name'), lon, lat, bool(pr.get('adm0cap')), pr.get('pop_min') or 0)
 # Towns asked for by name (not metro regions in Eurostat's typology): Leuven and Edessa.
 TOWNS = {'BE242': ('Leuven', 4.7005, 50.8798), 'EL524': ('Edessa', 22.0473, 40.8016)}
 metro_regs = {r for regs in members.values() for r in regs}
 for r, (nm, lon, lat) in TOWNS.items():
     if r in REGSET and r not in metro_regs:
-        best_place[r] = ((False, 0), nm, lon, lat, False)
-for r, (_, nm, lon, lat, cap) in sorted(best_place.items()):
+        best_place[r] = ((False, 0), nm, lon, lat, False, 0)
+for r, (_, nm, lon, lat, cap, ne_pop) in sorted(best_place.items()):
+    if r[:2] == 'TR':
+        nm = world['counties'][RIDX[r]]['name']  # a Turkish metro municipality is the whole province: use its name
     if not R[r]['population']:
         continue
     x, y = proj(lon, lat)
@@ -589,7 +591,7 @@ for r, (_, nm, lon, lat, cap) in sorted(best_place.items()):
     if cell not in footprint:
         footprint = sorted(set(footprint) | {cell})
     cities.append(dict(id=r + 'C', name=nm, regs=[r], x=round(float(x), 1), y=round(float(y), 1), cell=cell, footprint=footprint,
-                       capital=cap, country=r[:2], town=r in TOWNS, single=True))
+                       capital=cap, country=r[:2], town=r in TOWNS, single=True, lon=lon, lat=lat, ne_pop=ne_pop))
 print('cities from places (no Eurostat metro):', len(best_place), 'countries', no_metro)
 
 # validate with Eurostat's own metro population
@@ -685,6 +687,72 @@ for c in cities:
     row['counties'] = c['regs']; row['footprint'] = c['footprint']
     city_rows.append(row)
 city_rows = [c for c in city_rows if c['population']]
+
+# Single-place cities (towns, and cities where Eurostat has no metro regions) must not take the population of their
+# whole NUTS 3 region (Arr. Leuven is five times Leuven). They get the population of the municipality itself:
+# - Türkiye's 30 metropolitan municipalities cover their whole province by law, so the province is the city there;
+# - elsewhere the LAU (municipality, or Greek local community) at the city's position, from Eurostat GISCO, summing the
+#   parts of a city split into several LAUs ("Niš - Medijana", ...); where GISCO has no population, Natural Earth's
+#   city-proper estimate. The larger of the two is used, never more than the region.
+# Jobs, GDP and yields are then the region's, scaled by the city's share of the region's population (an estimate).
+TR_METRO = {'Adana', 'Ankara', 'Antalya', 'Aydın', 'Balıkesir', 'Bursa', 'Denizli', 'Diyarbakır', 'Erzurum', 'Eskişehir', 'Gaziantep',
+            'Hatay', 'İstanbul', 'İzmir', 'Kahramanmaraş', 'Kayseri', 'Kocaeli', 'Konya', 'Malatya', 'Manisa', 'Mardin', 'Mersin',
+            'Muğla', 'Ordu', 'Sakarya', 'Samsun', 'Şanlıurfa', 'Tekirdağ', 'Trabzon', 'Van'}  # the 30 büyükşehir provinces
+LAUS = lau.LAU()
+by_id = {c['id']: c for c in cities}
+
+
+def place_population(c):
+    if c['country'] == 'TR' and world['counties'][RIDX[c['regs'][0]]]['name'] in TR_METRO:
+        return None, 'metropolitan municipality (whole province)'
+    hit = LAUS.at(c['lon'], c['lat'])
+    best, src = 0, None
+    if hit:
+        name, p, y = hit
+        if ' - ' in name:  # a city split into several LAUs: add up the parts with the same prefix
+            pre = name.split(' - ')[0] + ' - '
+            tot = sum(v for k, v in LAU_BY_NAME.items() if k.startswith(pre))
+            p, name = (tot or p), name.split(' - ')[0]
+        best, src = p, f'municipality of {name}, {y} (Eurostat GISCO LAU)'
+    if c.get('ne_pop', 0) > best:
+        best, src = c['ne_pop'], 'city proper (Natural Earth estimate)'
+    return (best or None), src
+
+
+LAU_BY_NAME = {}
+for tree, geoms, props in LAUS.layers:
+    for pr in props:
+        v = LAUS.pop.get(pr['GISCO_ID'])
+        if v and pr['LAU_NAME'] not in LAU_BY_NAME:
+            LAU_BY_NAME[pr['LAU_NAME']] = v[0]
+
+EXT_KEYS = ('population', 'employed', 'gdp')
+for row in city_rows:
+    c = by_id[row['id']]
+    if not c.get('single'):
+        continue
+    reg_name = world['counties'][RIDX[c['regs'][0]]]['name']
+    p, src = place_population(c)
+    row['population_source'] = src
+    if p is None or p >= row['population'] * 0.97:
+        row['full'] = f"{row['name']} ({src})" if src and 'metropolitan' in src else f"{row['name']} ({reg_name})"
+        continue
+    f = p / row['population']
+    row['region_population'] = row['population']
+    row['scaled_from_region'] = reg_name
+    for k in ('employed', 'gdp'):
+        if row.get(k) is not None:
+            row[k] = round(row[k] * f)
+    row['population'] = int(p)
+    for d in ('jobs', 'gdp_by_industry', 'yields'):
+        if row.get(d):
+            row[d] = {k: (None if v is None else round(v * f)) for k, v in row[d].items()}
+    if row.get('pop_series'):
+        row['pop_series'] = {k: (None if v is None else round(v * f)) for k, v in row['pop_series'].items()}
+    row['full'] = f"{row['name']} (town; jobs and GDP scaled from {reg_name})"
+    if f < 0.6:
+        row['footprint'] = [row['cell']]
+print('single-place cities:', [(r['name'], r['population'], r.get('region_population')) for r in city_rows if not r['metro']])
 city_rows.sort(key=lambda c: -c['population'])
 
 # unique banner cells where possible

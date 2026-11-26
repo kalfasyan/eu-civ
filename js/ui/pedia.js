@@ -34,7 +34,9 @@ export function initPedia(data) {
       (Canary Islands, Azores, Madeira, the French overseas departments), Ceuta and Melilla, and Svalbard and Jan Mayen are left off, like the original left off Alaska and Hawaii.</p>
       <p><b>Cities</b> are Eurostat's metropolitan regions (agglomerations of 250,000+ people built from NUTS 3 regions), placed at their principal city.
       Their numbers cover the whole metro region, not just the city proper. Where Eurostat defines no metro regions (Türkiye, the Western Balkans, Iceland,
-      Liechtenstein), a city is the NUTS 3 region around a place of 250,000+ people or the capital. Leuven and Edessa are added as towns.
+      Liechtenstein), a city is placed at each place of 250,000+ people and at the capital. Leuven and Edessa are added as towns. These single-place
+      cities show the municipality's own population (jobs and GDP are their region's, scaled by population share), except in Türkiye,
+      where a metropolitan municipality covers its whole province.
       <b>Regions</b> are the ${data.world.counties.length.toLocaleString("en")} NUTS 3 regions (the map's "counties"); the UK's are its NUTS 2021 (ITL 2021) regions.</p>
       <h4>Credits</h4>
       <p>The map engine, art and interface are from Andrej Karpathy's <a href="https://karpathy.ai/usaciv/" target="_blank" rel="noopener">usaciv</a>
