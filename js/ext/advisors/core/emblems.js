@@ -28,6 +28,13 @@ const GLYPHS = {
     <path d="m24 20-3.5 5 2.3-.6 1.4 1.8 1.6-2.2z" fill="#dfe8ef"/>
     <path d="M10 42h42c-2 6-8 10-21 10S12 48 10 42z" fill="#b9c96a" stroke="#2a1d08" stroke-width="1.4"/>
     <path d="M16 45c5 1.5 25 1.5 32 0M19 48.5c5 1 21 1 26 0" stroke="#5b6b22" stroke-width="1" fill="none"/>`,
+  // a settler's tent with a pennant on a hill
+  settler: `<path d="M8 50c6-7 14-10 24-10s18 3 24 10z" fill="#b9c96a" stroke="#2a1d08" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M18 44 32 22l14 22z" fill="#fff4d2" stroke="#2a1d08" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M32 22v22l-5-0.2z" fill="#d9c79a"/>
+    <path d="M29 44 32 34l3 10z" fill="#2a1d08"/>
+    <path d="M32 22V11" stroke="#2a1d08" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M32 11.5 42 14.5 32 17.5z" fill="#c9a45c" stroke="#2a1d08" stroke-width="1.1" stroke-linejoin="round"/>`,
   // compass rose
   explorer: `<circle cx="32" cy="32" r="16" fill="none" stroke="#fff4d2" stroke-width="1.6" stroke-dasharray="2 3"/>
     <path d="M32 11 36 28 53 32 36 36 32 53 28 36 11 32 28 28z" fill="#fff4d2" stroke="#2a1d08" stroke-width="1.4" stroke-linejoin="round"/>
