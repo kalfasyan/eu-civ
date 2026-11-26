@@ -22,6 +22,7 @@ export const ADVISORS = [
   { id: "land", name: "Land", role: "Surveyor General", color: "#6e9a3c", dark: "#18280a", blurb: "Forest, farmland, mountain and city: what covers the Union.", load: () => import("./views/land.js") },
   { id: "commerce", name: "Commerce", role: "Master of Trade", color: "#2fa4b8", dark: "#062630", blurb: "The busiest ports and airports.", load: () => import("./views/commerce.js") },
   { id: "culture", name: "Culture", role: "Keeper of Wonders", color: "#c25b9a", dark: "#2e0c22", blurb: "World Heritage wonders, tourism and how long people live.", load: () => import("./views/culture.js") },
+  { id: "settler", name: "Where to live", role: "Settler", color: "#e0b04a", dark: "#3a2a08", blurb: "Tell it your trade, pay and languages: every region is scored for you.", load: () => import("./views/settler.js") },
   { id: "explorer", name: "Explorer", role: "Cartographer", color: "#9a7bc9", dark: "#1e1236", blurb: "Slice and dice every number: any level, any columns, any chart.", load: () => import("./views/explorer.js") },
 ];
 const byId = new Map(ADVISORS.map((a) => [a.id, a]));
@@ -31,7 +32,7 @@ const COUNCIL = (() => {
     { label: "Wealth and work", ids: ["economy", "prosperity", "commerce", "energy"] },
     { label: "People and land", ids: ["people", "knowledge", "culture", "land"] },
     { label: "Defense", ids: ["military"] },
-    { label: "Your own questions", ids: ["explorer"] },
+    { label: "Your own questions", ids: ["settler", "explorer"] },
   ];
   const listed = new Set(g.flatMap((x) => x.ids));
   g[g.length - 1].ids.push(...ADVISORS.filter((a) => !listed.has(a.id)).map((a) => a.id));
@@ -336,5 +337,16 @@ export function install(app) {
     },
   });
 
-  app.advisors = { list: ADVISORS, open: (id, params) => switchTo(id, params), get current() { return current; }, data: () => data, ensureData };
+  // The Settler's brief (#brief=…) is registered here, at install, so a pasted link keeps it while the advisor loads.
+  let briefHook = null, pendingBrief = null;
+  app.hash.register("brief", {
+    get: () => (briefHook ? briefHook.get() : pendingBrief),
+    set(v) { pendingBrief = v || null; briefHook?.set(v || null); },
+  });
+  const brief = {
+    take() { const v = pendingBrief; pendingBrief = null; return v; },
+    hook(h) { briefHook = h; return () => { if (briefHook === h) briefHook = null; }; },
+  };
+
+  app.advisors = { list: ADVISORS, brief, open: (id, params) => switchTo(id, params), get current() { return current; }, data: () => data, ensureData };
 }
