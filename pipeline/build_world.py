@@ -1,4 +1,4 @@
-"""world.json: hex grid over the EU27 with terrain, water, land cover, owners (countries) and NUTS 3 regions."""
+"""world.json: hex grid over the EU27 and the other countries Eurostat maps by region with terrain, water, land cover, owners (countries) and NUTS 3 regions."""
 import math, os, glob
 import numpy as np
 import shapely
@@ -11,15 +11,13 @@ MARGIN = 150.0
 STEP = 4.0  # km between sample points
 
 # --- regions ----------------------------------------------------------------------------------------------------
-nuts3 = load_json(RAW + '/nuts/nutsrg_2024_3.json')['features']
-nuts3 = [f for f in nuts3 if f['properties']['id'][:2] in EU27 and not f['properties']['id'].startswith(EXCLUDED_PREFIXES)]
-nuts3.sort(key=lambda f: f['properties']['id'])
+nuts3 = nuts3_features()
 reg_ids = [f['properties']['id'] for f in nuts3]
 reg_names = [f['properties']['na'] for f in nuts3]
 reg_geoms = [shape(f['geometry']) for f in nuts3]
 print('NUTS3 regions', len(reg_ids))
 
-countries = [c for c in EU27]
+countries = [c for c in MAP_COUNTRIES]
 cidx = {c: i for i, c in enumerate(countries)}
 
 minx = min(g.bounds[0] for g in reg_geoms) / 1000
@@ -38,7 +36,7 @@ lake_geoms = []
 for fn in ('ne_10m_lakes', 'ne_10m_lakes_europe'):
     for f in load_json(f'{RAW}/ne/{fn}.geojson')['features']:
         g = shape(f['geometry'])
-        if g.bounds[2] < -15 or g.bounds[0] > 40 or g.bounds[3] < 30 or g.bounds[1] > 75:
+        if g.bounds[2] < LON_RANGE[0] - 3 or g.bounds[0] > LON_RANGE[1] + 3 or g.bounds[3] < LAT_RANGE[0] - 3 or g.bounds[1] > LAT_RANGE[1] + 3:
             continue
         g = shapely.transform(g, lambda c: np.column_stack(TO3035.transform(c[:, 0], c[:, 1])))
         lake_geoms.append(g)
@@ -77,7 +75,7 @@ LON = np.asarray(LON); LAT = np.asarray(LAT)
 
 # --- elevation (Terrarium tiles, z7) --------------------------------------------------------------------------------
 Z = 7
-TX0, TX1, TY0, TY1 = 60, 76, 26, 52
+TX0, TX1, TY0, TY1 = 55, 80, 25, 52
 mosaic = np.full(((TY1 - TY0 + 1) * 256, (TX1 - TX0 + 1) * 256), np.nan, np.float32)
 for tx in range(TX0, TX1 + 1):
     for ty in range(TY0, TY1 + 1):
@@ -135,7 +133,7 @@ for i in range(S):
     if nl * 2 >= len(idx):
         reg = p_reg[idx][land]
         reg_in = reg[reg >= 0]
-        if len(reg_in) * 2 >= nl:  # mostly EU land
+        if len(reg_in) * 2 >= nl:  # mostly mapped land
             vals, cnt = np.unique(reg_in, return_counts=True)
             county[i] = int(vals[np.argmax(cnt)])
             owner[i] = cidx[reg_ids[county[i]][:2]]
@@ -196,7 +194,7 @@ for i in range(S):
             elev[i] = int(round(float(below.mean()))) if len(below) else -4000
 
 # Make sure every small NUTS 3 island / micro-region that got no hex but sits in water gets one (e.g. Malta, Gozo).
-pt = {f['properties']['id']: f['geometry']['coordinates'] for f in load_json(RAW + '/nuts/nutspt_2024_3.json')['features']}
+pt = nuts3_points()
 has = set(county[county >= 0].tolist())
 forced = []
 for ri, rid in enumerate(reg_ids):
@@ -238,7 +236,7 @@ for fn in ('ne_10m_rivers_lake_centerlines', 'ne_10m_rivers_europe'):
         name = pr.get('name_en') or pr.get('name') or None
         for ln in lines:
             a = np.array(ln)
-            if a.size == 0 or a[:, 0].max() < -12 or a[:, 0].min() > 36 or a[:, 1].max() < 33 or a[:, 1].min() > 72:
+            if a.size == 0 or a[:, 0].max() < LON_RANGE[0] or a[:, 0].min() > LON_RANGE[1] or a[:, 1].max() < LAT_RANGE[0] or a[:, 1].min() > LAT_RANGE[1]:
                 continue
             x, y = proj(a[:, 0], a[:, 1])
             c = grid.cell_at(x, y)
@@ -280,7 +278,7 @@ for t in tables['cover']:
     if t['id'] in wcmap:
         t['rule'] = 'ESA WorldCover 2021 class ' + wcmap[t['id']] + ('' if t['id'] == 9 else ' is the largest group of the hex’s land samples.')
     if t['id'] == 0:
-        t['rule'] = 'Water, land outside the EU, or no WorldCover samples.'
+        t['rule'] = 'Water, land outside the map’s countries, or no WorldCover samples.'
 
 world = {
     'version': 2, 'grid': grid.to_dict(), 'width': round(W, 1), 'height': round(H, 1), 'margin': MARGIN,

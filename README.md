@@ -1,7 +1,9 @@
 # EU Civ
 
-A Civilization-style hex map of the European Union built from real public data: 238 metro regions as cities,
-1,149 NUTS 3 regions, the 27 member states, terrain from elevation and land cover, and yields from Eurostat
+A Civilization-style hex map of Europe built from real public data: the 27 EU countries plus every other country
+Eurostat maps by region (the UK, Switzerland, Norway, Iceland, Liechtenstein, Türkiye, Serbia, North Macedonia,
+Montenegro and Albania). 325 cities (Eurostat metro regions, plus large cities where Eurostat defines none, plus the
+towns of Leuven and Edessa), 1,499 NUTS 3 regions, terrain from elevation and land cover, and yields from Eurostat
 (Food = farm jobs, Production = industry + construction jobs, Gold = GDP, Science = ICT + professional jobs,
 Culture = arts and services jobs).
 
@@ -35,10 +37,12 @@ Inputs to place in `raw/` before running:
 - `terrarium/` Terrarium elevation tiles at zoom 7 (AWS Terrain Tiles)
 - `worldcover/` ESA WorldCover 2021 overviews (`pipeline/fetch_worldcover.py`)
 - `metro/Metro-regions-NUTS-2016.xlsx` from Eurostat's metropolitan regions page
+- `uk/` ONS regional GDP and GVA-by-industry workbooks and a BRES extract from Nomis (fetched automatically by `pipeline/uk.py`)
 - `misc/` WRI Global Power Plant Database (`gppd.csv`), UNESCO World Heritage list (`whc_sites.csv`), UN/LOCODE (`unlocode.csv`), OurAirports (`airports.csv`)
 - `usaciv_world.json`: usaciv's `web/data/world.json`, used only as the template for the terrain rule tables (or set `USACIV_WORLD`)
 
-Eurostat tables are fetched on demand from the JSON-stat API and cached in `raw/eurostat/`.
+Eurostat tables are fetched on demand from the JSON-stat API and cached in `raw/eurostat/`. The UK left Eurostat's regional
+statistics after Brexit, so its population, GDP and jobs come from the ONS (www.ons.gov.uk) and Nomis (www.nomisweb.co.uk).
 
 Then, from `pipeline/`:
 

@@ -18,8 +18,34 @@ COUNTRY_NAMES = {'AT': 'Austria', 'BE': 'Belgium', 'BG': 'Bulgaria', 'CY': 'Cypr
                  'LV': 'Latvia', 'MT': 'Malta', 'NL': 'Netherlands', 'PL': 'Poland', 'PT': 'Portugal', 'RO': 'Romania',
                  'SE': 'Sweden', 'SI': 'Slovenia', 'SK': 'Slovakia'}
 CAPITALS = {'AT': 'AT001MC', 'BE': 'BE001MC'}  # filled from metro codes ending in MC
-# Outermost regions and the North African enclaves are left off the map (like the original skipped AK/HI).
-EXCLUDED_PREFIXES = ('FRY', 'ES70', 'PT20', 'PT30', 'ES63', 'ES64')
+# Beyond the EU27: every other country Eurostat maps by NUTS region. The UK left NUTS after 2020, so its regions come from
+# NUTS 2021 (= ITL 2021) and its economy from the ONS; the others are on NUTS 2024 like the EU.
+EXTRA = ['UK', 'CH', 'NO', 'IS', 'LI', 'TR', 'RS', 'MK', 'ME', 'AL']
+MAP_COUNTRIES = EU27 + EXTRA
+COUNTRY_NAMES.update({'UK': 'United Kingdom', 'CH': 'Switzerland', 'NO': 'Norway', 'IS': 'Iceland', 'LI': 'Liechtenstein',
+                      'TR': 'Türkiye', 'RS': 'Serbia', 'MK': 'North Macedonia', 'ME': 'Montenegro', 'AL': 'Albania'})
+# Outermost regions, the North African enclaves and the Arctic islands are left off the map (like the original skipped AK/HI).
+EXCLUDED_PREFIXES = ('FRY', 'ES70', 'PT20', 'PT30', 'ES63', 'ES64', 'NO0B')
+LON_RANGE, LAT_RANGE = (-25.0, 46.0), (33.0, 72.0)
+
+
+def nuts3_features():
+    """NUTS 3 polygons of the map: NUTS 2024 for every country except the UK, which comes from NUTS 2021."""
+    f24 = load_json(RAW + '/nuts/nutsrg_2024_3.json')['features']
+    f21 = load_json(RAW + '/nuts/nutsrg_2021_3.json')['features']
+    feats = [f for f in f24 if f['properties']['id'][:2] in MAP_COUNTRIES] + [f for f in f21 if f['properties']['id'][:2] == 'UK']
+    feats = [f for f in feats if not f['properties']['id'].startswith(EXCLUDED_PREFIXES)]
+    feats.sort(key=lambda f: f['properties']['id'])
+    return feats
+
+
+def nuts3_points():
+    pt = {f['properties']['id']: f['geometry']['coordinates'] for f in load_json(RAW + '/nuts/nutspt_2024_3.json')['features']}
+    for f in load_json(RAW + '/nuts/nutspt_2021_3.json')['features']:
+        if f['properties']['id'][:2] == 'UK':
+            pt[f['properties']['id']] = f['geometry']['coordinates']
+    return pt
+
 
 TO3035 = Transformer.from_crs('EPSG:4326', 'EPSG:3035', always_xy=True)
 TO4326 = Transformer.from_crs('EPSG:3035', 'EPSG:4326', always_xy=True)

@@ -1,10 +1,10 @@
-"""cities.json (metro regions), states.json (countries), nation.json (EU27), counties.json (NUTS 3), plus interims."""
+"""cities.json (metro regions), states.json (countries), nation.json (the whole map), counties.json (NUTS 3), plus interims."""
 import math, re
 from collections import defaultdict
 import numpy as np
 import openpyxl, shapely
 from shapely.geometry import shape, Point
-import es
+import es, uk
 from common import *
 
 meta, proj, grid = world_ctx()
@@ -17,7 +17,7 @@ cell_samples = {int(k): {int(a): b for a, b in v.items()} for k, v in meta['cell
 regc = load_interim('_regions')  # id -> [x, y, area_km2]
 
 # ---- crosswalks 2024 -> 2021 / 2016 by centroid ---------------------------------------------------------------------
-pt24 = {f['properties']['id']: f['geometry']['coordinates'] for f in load_json(RAW + '/nuts/nutspt_2024_3.json')['features']}
+pt24 = nuts3_points()
 
 
 def crosswalk(year):
@@ -26,7 +26,7 @@ def crosswalk(year):
     geoms = [shape(f['geometry']).buffer(0) for f in feats]
     ids = [f['properties']['id'] for f in feats]
     tree = shapely.STRtree(geoms)
-    cur = {f['properties']['id']: shape(f['geometry']).buffer(0) for f in load_json(RAW + '/nuts/nutsrg_2024_3.json')['features']}
+    cur = {f['properties']['id']: shape(f['geometry']).buffer(0) for f in nuts3_features()}
     out = {}
     for r in REG:
         if r in ids:
@@ -45,6 +45,23 @@ def crosswalk(year):
 
 X21 = crosswalk(2021)
 X16 = crosswalk(2016)
+REGSET = set(REG)
+
+
+def sibling_share(series):
+    """For regions found only through their 2021 code: the share of that 2021 region they stand for. When a 2021 region
+    was split in 2024 (Norway's counties, for instance), each piece gets its population share instead of the whole value."""
+    groups = defaultdict(list)
+    for r in REG:
+        if r not in series and X21.get(r) in series:
+            groups[X21[r]].append(r)
+    share = {}
+    for c, rs in groups.items():
+        ps = [val(pop.get(r)) or 0 for r in rs]
+        tot = sum(ps)
+        for r, p in zip(rs, ps):
+            share[r] = (p / tot) if tot and len(rs) > 1 else 1.0
+    return share
 
 
 def get3(series, r, *alts):
@@ -128,6 +145,160 @@ fill_children(emp)
 fill_children(gva)
 print('regions with industry splits estimated from their parent region:', len(ESTIMATED))
 
+# ---- United Kingdom: ONS population & GDP, BRES jobs ------------------------------------------------------------------
+fx_rows, _ = es.table('ert_bil_eur_a', currency='GBP', statinfo='AVG', unit='NAC', sinceTimePeriod=2015)
+GBP_PER_EUR = {co['time']: v for co, v in fx_rows}
+UKREG = {r: world['counties'][RIDX[r]]['name'] for r in REG if r[:2] == 'UK'}
+UK_ONS = uk.ons_regions(UKREG)
+UK_JOBS = uk.bres_jobs()
+for r, d in UK_ONS.items():
+    ps = d.get('population', {})
+    if ps:
+        y = max(ps)
+        pop[r] = (round(ps[y]), str(int(y) + 1))  # mid-year estimate ~ 1 January of the next year
+        pop_series[r] = {str(int(y) + 1): round(v) for y, v in ps.items()}
+    gs = d.get('gdp_gbp', {})
+    if gs:
+        y = max(gs)
+        gdp[r] = (gs[y] / GBP_PER_EUR[y] / 1e6, y)
+UK_GVA, UK_GVA_YEAR = uk.gva_industry(UKREG, {r: 1 for r in gdp if r[:2] == 'UK'})
+_m = [(t['TOTAL'][0], UK_ONS[r]['gdp_gbp'][UK_GVA_YEAR]) for r, t in UK_GVA.items()
+      if not t.get('_share') and 'TOTAL' in t and UK_GVA_YEAR in UK_ONS.get(r, {}).get('gdp_gbp', {})]
+GVA_PER_GDP = sum(a for a, _ in _m) / sum(b for _, b in _m)
+for r, t in UK_GVA.items():
+    rate = GBP_PER_EUR[UK_GVA_YEAR]
+    if t.pop('_share', False):
+        base = UK_ONS[r]['gdp_gbp'][UK_GVA_YEAR] * GVA_PER_GDP
+        gva[r] = {k: (v * base / rate / 1e6, y) for k, (v, y) in t.items()}
+    else:
+        gva[r] = {k: (v / rate / 1e6, y) for k, (v, y) in t.items()}
+print('UK regions with GVA by industry', len(UK_GVA), 'GVA/GDP', round(GVA_PER_GDP, 3))
+for r, t in UK_JOBS.items():
+    if r in REGSET:
+        emp[r] = {k: (v / 1000, yr) for k, (v, yr) in t.items()}
+print('UK regions with ONS data', len(UK_ONS), 'with BRES jobs', len([r for r in UK_JOBS if r in REGSET]))
+
+# ---- jobs estimated from GVA where Eurostat has no NUTS 3 employment (CH, TR, AL, ME...) --------------------------------
+# jobs in an industry = the region's GVA in it ÷ the country's GVA per worker in that industry (national accounts and LFS).
+LEAVES = {'A': ['A'], 'BDE': ['B', 'D', 'E'], 'C': ['C'], 'F': ['F'], 'G-I': ['G', 'H', 'I'], 'J': ['J'], 'K': ['K'], 'L': ['L'],
+          'M_N': ['M', 'N'], 'O-Q': ['O', 'P', 'Q'], 'R-U': ['R', 'S', 'T', 'U']}
+GROUPS = {'B-E': ['BDE', 'C'], 'G-J': ['G-I', 'J'], 'K-N': ['K', 'L', 'M_N'], 'O-U': ['O-Q', 'R-U'], 'TOTAL': list(LEAVES)}
+NO_EMP = sorted({r[:2] for r in REG if r[:2] != 'UK'} - {g[:2] for g in emp if len(g) == 5})
+ALLC = sorted({r[:2] for r in REG})
+nat_jobs_rows, _ = es.table('lfsa_egan2', geo=ALLC, sex='T', age='Y15-74', unit='THS_PER', sinceTimePeriod=2019)
+nat_a10e_rows, _ = es.table('nama_10_a10_e', geo=ALLC, unit='THS_PER', na_item='EMP_DC',
+                            nace_r2=['TOTAL', 'A', 'B-E', 'C', 'F', 'G-I', 'J', 'K', 'L', 'M_N', 'O-Q', 'R-U'], sinceTimePeriod=2019)
+nat_gva_rows, _ = es.table('nama_10_a10', geo=ALLC, unit='CP_MEUR', na_item='B1G',
+                           nace_r2=['TOTAL', 'A', 'B-E', 'C', 'F', 'G-I', 'J', 'K', 'L', 'M_N', 'O-Q', 'R-U'], sinceTimePeriod=2019)
+nat_jobs = latest_by(nat_jobs_rows, 'nace_r2')
+nat_a10e = latest_by(nat_a10e_rows, 'nace_r2')
+nat_gva = latest_by(nat_gva_rows, 'nace_r2')
+
+
+def nat_job_leaves(cc):
+    """National jobs by leaf industry: national accounts (nama_10_a10_e), else the Labour Force Survey (lfsa_egan2)."""
+    a = nat_a10e.get(cc)
+    if a and all(k in a for k in ('A', 'B-E', 'C', 'F', 'G-I', 'J', 'K', 'L', 'M_N', 'O-Q', 'R-U')):
+        return leaf_table(a)
+    nj = nat_jobs.get(cc)
+    if not nj:
+        return None
+    return {k: sum(nj[x][0] for x in secs if x in nj) for k, secs in LEAVES.items()}
+
+
+def leaf_table(t):
+    """{leaf: value} from a {nace: (v, t)} table; BDE = B-E minus C."""
+    o = {k: t[k][0] for k in LEAVES if k in t and k != 'BDE'}
+    if 'B-E' in t and 'C' in t:
+        o['BDE'] = max(0.0, t['B-E'][0] - t['C'][0])
+    return o
+
+
+def complete(t, mix):
+    """Fill the missing leaves of a region's GVA: a group's (or the total's) remainder is split by the country's mix."""
+    have = leaf_table(t)
+    if 'B-E' in t and 'C' not in t:
+        have.pop('BDE', None)
+    for grp in ('B-E', 'G-J', 'K-N', 'O-U', 'TOTAL'):
+        if grp not in t:
+            continue
+        kids = GROUPS[grp]
+        miss = [k for k in kids if k not in have]
+        if not miss:
+            continue
+        rest = max(0.0, t[grp][0] - sum(have.get(k, 0) for k in kids))
+        w = sum(mix.get(k, 0) for k in miss)
+        for k in miss:
+            have[k] = rest * (mix.get(k, 0) / w if w else 1 / len(miss))
+    return have
+
+
+JOBS_FROM_GVA = set()
+for r in REG:
+    cc = r[:2]
+    if cc not in NO_EMP:
+        continue
+    g = get3(gva, r, X21)
+    nj, ng = nat_job_leaves(cc), nat_gva.get(cc)
+    if not g or not nj or not ng:
+        continue
+    mix = leaf_table(ng)
+    leaves = complete(g, mix)
+    yr = g['TOTAL'][1] if 'TOTAL' in g else max(v[1] for v in g.values())
+    per_worker = {}
+    for k in LEAVES:
+        w = nj.get(k)
+        if w and mix.get(k):
+            per_worker[k] = mix[k] / w
+    jobs = {k: v / per_worker[k] for k, v in leaves.items() if per_worker.get(k)}
+    if len(jobs) < len(LEAVES):
+        continue
+    def pack(d):
+        o = {k: (d[k], yr) for k in LEAVES if k != 'BDE'}
+        o['B-E'] = (d['BDE'] + d['C'], yr)
+        o['TOTAL'] = (sum(d.values()), yr)
+        return o
+    emp[r] = pack(jobs)
+    gva[r] = pack(leaves)
+    JOBS_FROM_GVA.add(r)
+# Regions whose jobs total is published but some industries are withheld (e.g. Oslo's farm jobs): the withheld
+# industries share the remainder in the proportions of the country's job mix.
+# The regional GVA year can lag the national one: scale each country's estimates so its jobs add up to the national total.
+for cc in NO_EMP:
+    rs = [r for r in JOBS_FROM_GVA if r[:2] == cc]
+    nj = nat_job_leaves(cc)
+    est = sum(emp[r]['TOTAL'][0] for r in rs)
+    if rs and nj and est:
+        f = sum(nj.values()) / est
+        for r in rs:
+            emp[r] = {k: (v[0] * f, v[1]) for k, v in emp[r].items()}
+
+
+def fill_withheld():
+    n = 0
+    for r, t in list(emp.items()):
+        if len(r) != 5 or r[:2] not in ALLC or 'TOTAL' not in t:
+            continue
+        if all(k in t for k in ('A', 'B-E', 'C', 'F', 'G-I', 'J', 'K', 'L', 'M_N', 'O-Q', 'R-U')):
+            continue
+        mix = nat_job_leaves(r[:2])
+        if not mix:
+            continue
+        leaves = complete(t, mix)
+        yr = t['TOTAL'][1]
+        for k in LEAVES:
+            if k != 'BDE' and k not in t and k in leaves:
+                t[k] = (leaves[k], yr)
+        if 'B-E' not in t and 'BDE' in leaves and 'C' in t:
+            t['B-E'] = (leaves['BDE'] + t['C'][0], yr)
+        n += 1
+
+    return n
+
+
+print('regions with withheld industries filled from the national mix:', fill_withheld())
+print('countries without NUTS 3 jobs', NO_EMP, '; regions with jobs estimated from GVA', len(JOBS_FROM_GVA))
+
 # NUTS 2 indicators
 inc = es.latest('nama_10r_2hhinc', unit='EUR_HAB', direct='BAL', na_item='B6N', sinceTimePeriod=2019)
 inc_pps = es.latest('nama_10r_2hhinc', unit='PPS_EU27_2020_HAB', direct='BAL', na_item='B6N', sinceTimePeriod=2019)
@@ -172,14 +343,85 @@ def ind_split(table, scale):
     return o, year
 
 
+def fill_from_parent(series, is_table):
+    """Regions with no NUTS 3 value (2024 or 2021 code) get their NUTS 2 parent's remainder, split by population."""
+    missing = [r for r in REG if r not in series and X21.get(r) not in series]
+    by_parent = defaultdict(list)
+    for r in missing:
+        p = X21.get(r, r)[:4]
+        if p in series:
+            by_parent[p].append(r)
+    n = 0
+    for p, rs in by_parent.items():
+        known = [c for c in series if len(c) == 5 and c[:4] == p]
+        tot_pop = sum(val(pop.get(r)) or 0 for r in rs)
+        if not tot_pop:
+            continue
+        if is_table:
+            rest = {k: (max(0.0, v[0] - sum(series[c][k][0] for c in known if k in series[c])), v[1]) for k, v in series[p].items()}
+        else:
+            rest = (max(0.0, series[p][0] - sum(series[c][0] for c in known)), series[p][1])
+        for r in rs:
+            f = (val(pop.get(r)) or 0) / tot_pop
+            series[r] = {k: (v[0] * f, v[1]) for k, v in rest.items()} if is_table else (rest[0] * f, rest[1])
+            n += 1
+    return n
+
+
+# Countries with no regional accounts at all (Iceland, Liechtenstein): national GDP and jobs, split by population.
+nat_gdp = es.latest('nama_10_gdp', geo=ALLC, unit='CP_MEUR', na_item='B1GQ', sinceTimePeriod=2019)
+BY_POP = []
+for cc in ALLC:
+    rs = [r for r in REG if r[:2] == cc]
+    if any(r in gdp or X21.get(r) in gdp for r in rs) or cc not in nat_gdp:
+        continue
+    tp = sum(val(pop.get(r)) or 0 for r in rs)
+    nj = nat_job_leaves(cc)
+    for r in rs:
+        f = (val(pop.get(r)) or 0) / tp if tp else 0
+        gdp[r] = (nat_gdp[cc][0] * f, nat_gdp[cc][1])
+        if nj and r not in emp:
+            yr = nat_gdp[cc][1]
+            t = {k: (v * f, yr) for k, v in nj.items() if k != 'BDE'}
+            t['B-E'] = ((nj['BDE'] + nj['C']) * f, yr)
+            t['TOTAL'] = (sum(nj.values()) * f, yr)
+            emp[r] = t
+        BY_POP.append(r)
+print('regions with national figures split by population:', BY_POP)
+uk_mix = {}
+for r, t in gva.items():
+    if r[:2] == 'UK' and len(r) == 5:
+        for k, v in leaf_table(t).items():
+            uk_mix[k] = uk_mix.get(k, 0) + v
+for r, t in gva.items():
+    if r[:2] == 'UK' and len(r) == 5 and 'TOTAL' in t:
+        leaves = complete(t, uk_mix)
+        yr = t['TOTAL'][1]
+        for k in LEAVES:
+            if k != 'BDE' and k not in t and k in leaves:
+                t[k] = (leaves[k], yr)
+        if 'B-E' not in t and 'BDE' in leaves and 'C' in t:
+            t['B-E'] = (leaves['BDE'] + t['C'][0], yr)
+print('regions filled from their NUTS 2 parent:', fill_from_parent(gdp, False), fill_from_parent(emp, True), fill_from_parent(gva, True), fill_withheld())
+SH_POP, SH_EMP, SH_GVA, SH_GDP = sibling_share(pop), sibling_share(emp), sibling_share(gva), sibling_share(gdp)
+
+
+def scaled(entry, f):
+    if entry is None or f == 1:
+        return entry
+    if isinstance(entry, tuple):
+        return (entry[0] * f, entry[1])
+    return {k: (v[0] * f, v[1]) for k, v in entry.items()}
+
+
 R = {}
 for r in REG:
     p = val(get3(pop, r, X21))
     ps = get3(pop_series, r, X21) or {}
-    e_ind, e_year = ind_split(get3(emp, r, X21), 1000)
-    g_ind, g_year = ind_split(get3(gva, r, X21), 1e6)
-    etot = get3(emp, r, X21)
-    g = get3(gdp, r, X21)
+    e_ind, e_year = ind_split(scaled(get3(emp, r, X21), SH_EMP.get(r, 1)), 1000)
+    g_ind, g_year = ind_split(scaled(get3(gva, r, X21), SH_GVA.get(r, 1)), 1e6)
+    etot = scaled(get3(emp, r, X21), SH_EMP.get(r, 1))
+    g = scaled(get3(gdp, r, X21), SH_GDP.get(r, 1))
     a = val(get3(area, r, X21)) or val(get3(area_tot, r, X21)) or regc[r][2]
     R[r] = dict(
         population=p, series=ps, area=a,
@@ -209,19 +451,37 @@ mname = {}
 for row in ws.iter_rows(min_row=2, values_only=True):
     if row[0] and row[1]:
         m16[row[0]] = row[1]; mname[row[1]] = row[3]
+# Norway in the 2016 file: Rogaland is listed under Bergen and Trøndelag is missing; Eurostat's current list has
+# Stavanger (NO004M) and Trondheim (NO003M) as metros of their own.
+m16.update({'NO043': 'NO004M', 'NO060': 'NO003M'})
 met_labels = es.labels('met_pjanaggr3', 'metroreg', sex='T', age='TOTAL', lastTimePeriod=1)
 met_pop = es.latest('met_pjanaggr3', key='metroreg', sex='T', age='TOTAL', lastTimePeriod=1)
 members = defaultdict(list)
+# A 2024 region joins a metro when a 2016 member region covers at least 40% of it (merged regions such as Norway's
+# Vestland, which took in Bergen's Hordaland, would otherwise follow whichever old region was larger).
+f16 = load_json(f'{RAW}/nuts/nutsrg_2016_3.json')['features']
+g16 = [shape(f['geometry']).buffer(0) for f in f16]
+id16 = [f['properties']['id'] for f in f16]
+t16 = shapely.STRtree(g16)
+geo_now = {f['properties']['id']: shape(f['geometry']).buffer(0) for f in nuts3_features()}
 for r in REG:
-    c16 = X16.get(r)
-    m = m16.get(c16) if c16 else None
+    m = m16.get(X16.get(r))
+    if not m:
+        g = geo_now[r]
+        best = 0
+        for k in t16.query(g):
+            mm = m16.get(id16[k])
+            if mm:
+                a = g.intersection(g16[k]).area / g.area
+                if a >= 0.4 and a > best:
+                    m, best = mm, a
     if m and m[:2] in COUNTRIES:
         members[m].append(r)
 print('metros with members', len(members))
 
 # principal city position: Natural Earth populated places matched by name within the metro's regions
 places = load_json(RAW + '/ne/ne_10m_populated_places_simple.geojson')['features']
-cntry_iso = {'EL': 'GR'}
+cntry_iso = {'EL': 'GR', 'UK': 'GB'}
 
 
 def norm(s):
@@ -287,6 +547,51 @@ for m, regs in members.items():
     cities.append(dict(id=m, name=label, regs=sorted(regs), x=round(pos[0], 1), y=round(pos[1], 1), cell=cell,
                        footprint=footprint, capital=m.endswith('MC'), country=cc))
 
+# Countries outside Eurostat's metro typology (TR, RS, MK, ME, AL, IS, LI): a city for each NUTS 3 region holding a
+# Natural Earth place of 250,000+ people or the national capital, named after that place and made of that one region.
+TOWN_MIN = 250000
+no_metro = sorted(set(COUNTRIES) - {m[:2] for m in members})
+reg_geom = {f['properties']['id']: shape(f['geometry']).buffer(0) for f in nuts3_features() if f['properties']['id'][:2] in no_metro}
+rtree_ids = list(reg_geom)
+rtree = shapely.STRtree([reg_geom[r] for r in rtree_ids])
+best_place = {}
+for f in places:
+    pr = f['properties']
+    cc = {'GR': 'EL', 'GB': 'UK'}.get(pr.get('iso_a2'), pr.get('iso_a2'))
+    if cc not in no_metro:
+        continue
+    pm = pr.get('pop_max') or 0
+    if pm < TOWN_MIN and not pr.get('adm0cap'):
+        continue
+    lon, lat = f['geometry']['coordinates']
+    X, Y = TO3035.transform(lon, lat)
+    hit = [rtree_ids[k] for k in rtree.query(Point(X, Y), predicate='within')]
+    if not hit:  # places on a strait or shore (Istanbul) can fall just outside the generalised polygons
+        hit = [rtree_ids[k] for k in rtree.query_nearest(Point(X, Y), max_distance=15000)]
+    if not hit:
+        continue
+    r = hit[0]
+    key = (bool(pr.get('adm0cap')), pm)
+    if r not in best_place or key > best_place[r][0]:
+        best_place[r] = (key, pr.get('name'), lon, lat, bool(pr.get('adm0cap')))
+# Towns asked for by name (not metro regions in Eurostat's typology): Leuven and Edessa.
+TOWNS = {'BE242': ('Leuven', 4.7005, 50.8798), 'EL524': ('Edessa', 22.0473, 40.8016)}
+metro_regs = {r for regs in members.values() for r in regs}
+for r, (nm, lon, lat) in TOWNS.items():
+    if r in REGSET and r not in metro_regs:
+        best_place[r] = ((False, 0), nm, lon, lat, False)
+for r, (_, nm, lon, lat, cap) in sorted(best_place.items()):
+    if not R[r]['population']:
+        continue
+    x, y = proj(lon, lat)
+    footprint = sorted(cell_of_region.get(r, []))
+    cell = nearest_land_cell(float(x), float(y), set(footprint) if footprint else None)
+    if cell not in footprint:
+        footprint = sorted(set(footprint) | {cell})
+    cities.append(dict(id=r + 'C', name=nm, regs=[r], x=round(float(x), 1), y=round(float(y), 1), cell=cell, footprint=footprint,
+                       capital=cap, country=r[:2], town=r in TOWNS, single=True))
+print('cities from places (no Eurostat metro):', len(best_place), 'countries', no_metro)
+
 # validate with Eurostat's own metro population
 bad = []
 for c in cities:
@@ -322,8 +627,11 @@ def aggregate(regs):
     o['jobs'] = jobs
     gd = ssum('gdp')
     o['gdp'] = None if gd is None else round(gd)
-    yrs = [R[r]['gdp_year'] for r in regs if R[r]['gdp_year']]
-    o['gdp_year'] = min(yrs) if yrs else None
+    yw = defaultdict(float)  # the GDP year that covers most of the population
+    for r in regs:
+        if R[r]['gdp_year']:
+            yw[R[r]['gdp_year']] += R[r]['population'] or 0
+    o['gdp_year'] = max(yw, key=yw.get) if yw else None
     o['gdp_by_industry'] = gvab
 
     def pw(key):  # population-weighted mean
@@ -368,8 +676,10 @@ def finish(o):
 city_rows = []
 for c in cities:
     a = aggregate(c['regs'])
-    row = {'id': c['id'], 'name': c['name'], 'full': c['name'] + ' metropolitan region', 'states': [c['country']],
-           'metro': True, 'capital': c['capital'], 'x': c['x'], 'y': c['y'], 'cell': c['cell']}
+    single = c.get('single', False)
+    full = c['name'] + (' (' + world['counties'][RIDX[c['regs'][0]]]['name'] + ')' if single else ' metropolitan region')
+    row = {'id': c['id'], 'name': c['name'], 'full': full, 'states': [c['country']],
+           'metro': not single, 'capital': c['capital'], 'x': c['x'], 'y': c['y'], 'cell': c['cell']}
     row.update(finish(a))
     row['gdp_undisclosed'] = None; row['gdp_estimated'] = None
     row['counties'] = c['regs']; row['footprint'] = c['footprint']
@@ -442,29 +752,32 @@ for k in YK:
         s.setdefault('ranks', {})[k] = rr[i]
 save_json('states', state_rows)
 
-# EU27 total
+# Map total
+JOBS_NOTE = (' United Kingdom: BRES employment (ONS, via Nomis; Great Britain only). Switzerland, Türkiye, Albania and Montenegro, '
+             'which publish no regional jobs: the region’s value added in each industry ÷ the country’s value added per worker, '
+             'scaled to the national total. Iceland and Liechtenstein: national figures split by population.')
 nat = finish(aggregate(REG))
 nation = {
-    'vintage': f'Eurostat regional accounts & demography, {YEAR_POP}', 'year': YEAR_POP,
+    'vintage': f'Eurostat regional accounts & demography (UK: ONS), {YEAR_POP}', 'year': YEAR_POP,
     'gdp_vintage': 'Eurostat nama_10r_3gdp, %s' % nat['gdp_year'],
     'nation': nat,
     'yields': [
         {'key': 'food', 'icon': 'y-food', 'emoji': '\U0001F33E', 'label': 'Food', 'color': '#7fbf3f', 'unit': 'workers', 'industries': ['agriculture'],
-         'description': 'People employed in agriculture, forestry & fishing (NACE A), counted where they work (Eurostat nama_10r_3empers).'},
+         'description': 'People employed in agriculture, forestry & fishing (NACE A), counted where they work (Eurostat nama_10r_3empers).' + JOBS_NOTE},
         {'key': 'production', 'icon': 'y-production', 'emoji': '⚙️', 'label': 'Production', 'color': '#d9823b', 'unit': 'workers',
          'industries': ['manufacturing', 'energy_mining', 'construction'],
-         'description': 'People employed in industry (NACE B-E: manufacturing, mining, energy, water) and construction (F), counted where they work (Eurostat nama_10r_3empers).'},
+         'description': 'People employed in industry (NACE B-E: manufacturing, mining, energy, water) and construction (F), counted where they work (Eurostat nama_10r_3empers).' + JOBS_NOTE},
         {'key': 'gold', 'icon': 'y-gold', 'emoji': '\U0001F4B0', 'label': 'Gold', 'color': '#f2c94c', 'unit': 'usd', 'industries': [],
-         'description': 'Gross domestic product per year at current market prices, in euros, counted where the work is done (Eurostat nama_10r_3gdp, NUTS 3). Metro GDP is the sum of the metro region’s NUTS 3 regions.'},
+         'description': 'Gross domestic product per year at current market prices, in euros, counted where the work is done (Eurostat nama_10r_3gdp, NUTS 3). Metro GDP is the sum of the metro region’s NUTS 3 regions. United Kingdom: ONS regional GDP (2024), converted at the year’s average pound–euro rate.'},
         {'key': 'science', 'icon': 'y-science', 'emoji': '\U0001F52C', 'label': 'Science', 'color': '#4fa3e0', 'unit': 'workers',
          'industries': ['information', 'professional'],
-         'description': 'People employed in information & communication (NACE J) and professional, scientific, technical & support services (M-N), counted where they work (Eurostat nama_10r_3empers).'},
+         'description': 'People employed in information & communication (NACE J) and professional, scientific, technical & support services (M-N), counted where they work (Eurostat nama_10r_3empers).' + JOBS_NOTE},
         {'key': 'culture', 'icon': 'y-culture', 'emoji': '\U0001F3AD', 'label': 'Culture', 'color': '#b07ce0', 'unit': 'workers', 'industries': ['arts'],
-         'description': 'People employed in arts, entertainment, recreation & other services (NACE R-U), counted where they work (Eurostat nama_10r_3empers).'},
+         'description': 'People employed in arts, entertainment, recreation & other services (NACE R-U), counted where they work (Eurostat nama_10r_3empers).' + JOBS_NOTE},
     ],
     'industries': {k: lbl for k, _, lbl in IND},
     'gdp_industries': {k: lbl for k, _, lbl in IND},
-    'currency': 'EUR', 'region': 'EU27',
+    'currency': 'EUR', 'region': 'Europe',
 }
 save_json('nation', nation)
 

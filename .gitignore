@@ -1,5 +1,5 @@
-raw/
-interim/
+/raw
+/interim
 shots/
 __pycache__/
 *.pyc

@@ -24,18 +24,21 @@ export function initPedia(data) {
   const pages = {
     "About this map": () => `
       ${h2("pedia", "📖", "About this map")}
-      <p>This is the real European Union, drawn like a strategy game. Nothing is invented: every tile, city and
-      number comes from public data (mostly Eurostat), listed under <i>Sources</i>.</p>
+      <p>This is the real Europe, drawn like a strategy game. Nothing is invented: every tile, city and
+      number comes from public data (mostly Eurostat; the ONS for the UK), listed under <i>Sources</i>.</p>
       <h4>How it's built</h4>
-      <p>The 27 member states are projected (ETRS89 Lambert azimuthal equal-area, EPSG:3035) and cut into ${data.world.grid.cols}×${data.world.grid.rows}
+      <p>The 27 EU member states, plus every other country Eurostat maps by region (the United Kingdom, Switzerland, Norway, Iceland,
+      Liechtenstein, Türkiye, Serbia, North Macedonia, Montenegro and Albania), are projected (ETRS89 Lambert azimuthal equal-area, EPSG:3035) and cut into ${data.world.grid.cols}×${data.world.grid.rows}
       hexes, each ${data.world.grid.radius * 2} km corner to corner. Each hex belongs to the country and NUTS 3 region that most of its sample points
       (one every 4 km) fall in. Terrain comes from elevation and ESA WorldCover land-cover samples inside each hex. The outermost regions
-      (Canary Islands, Azores, Madeira, the French overseas departments) and Ceuta and Melilla are left off, like the original left off Alaska and Hawaii.</p>
+      (Canary Islands, Azores, Madeira, the French overseas departments), Ceuta and Melilla, and Svalbard and Jan Mayen are left off, like the original left off Alaska and Hawaii.</p>
       <p><b>Cities</b> are Eurostat's metropolitan regions (agglomerations of 250,000+ people built from NUTS 3 regions), placed at their principal city.
-      Their numbers cover the whole metro region, not just the city proper. <b>Regions</b> are the 1,149 NUTS 3 regions (the map's "counties").</p>
+      Their numbers cover the whole metro region, not just the city proper. Where Eurostat defines no metro regions (Türkiye, the Western Balkans, Iceland,
+      Liechtenstein), a city is the NUTS 3 region around a place of 250,000+ people or the capital. Leuven and Edessa are added as towns.
+      <b>Regions</b> are the ${data.world.counties.length.toLocaleString("en")} NUTS 3 regions (the map's "counties"); the UK's are its NUTS 2021 (ITL 2021) regions.</p>
       <h4>Credits</h4>
       <p>The map engine, art and interface are from Andrej Karpathy's <a href="https://karpathy.ai/usaciv/" target="_blank" rel="noopener">usaciv</a>
-      (MIT licence, via the poro/usaciv fork). This EU edition swaps in a new data pipeline built from European sources.</p>
+      (MIT licence, via the poro/usaciv fork). This European edition swaps in a new data pipeline built from European sources.</p>
       <h4>Controls</h4>
       <p>Drag or arrow keys / WASD to pan · scroll, +/– or double-click to zoom · click a city or a country to open it ·
       / or ⌘K to search · L to cycle lenses · R to show or hide resources · ? for all shortcuts · Esc to close.</p>
@@ -44,7 +47,7 @@ export function initPedia(data) {
     Yields: () => `
       ${h2("y-production", "⚙️", "Yields")}
       <p>Civilization's yields mapped onto real measures. Job-based yields count people <i>employed</i> in an industry group,
-      where they work (Eurostat regional accounts). <b>Gold is GDP</b>: output per year in euros, counted where the work is done.</p>
+      where they work (Eurostat regional accounts; BRES for the UK; estimated from value added where a country publishes no regional jobs). <b>Gold is GDP</b>: output per year in euros, counted where the work is done.</p>
       <table>${data.nation.yields.map((y) => `<tr><td class="ic" style="color:${esc(y.color)}">${glyph(y, 26)}</td><td><b style="color:${esc(y.color)}">${esc(y.label)}${y.key === "gold" ? " (GDP)" : ""}</b><br>${esc(y.description)}</td></tr>`).join("")}</table>
       <h4>Amenities</h4>
       <p>Unemployment is the Labour Force Survey rate for ages 15–74; income is net disposable household income per person. Both are
@@ -54,7 +57,7 @@ export function initPedia(data) {
       <p>Click any land hex without a city to open its country. A country's numbers are the sums of its NUTS 3 regions on the map
       (${esc(data.nation.vintage)}${data.nation.gdp_vintage ? `; GDP from ${esc(data.nation.gdp_vintage)}` : ""}),
       not the sum of its cities, so rural areas count too.</p>
-      <p><b>Ranks</b> ("#3 of 27") compare the 27 member states; 1 is the largest.</p>`,
+      <p><b>Ranks</b> ("#3 of ${data.world.states.length}") compare all ${data.world.states.length} countries on the map; 1 is the largest.</p>`,
     Terrain: () => {
       const t = data.w?.tables || resolveTables(data.world.tables);
       const hasCover = Array.isArray(data.world.cover);

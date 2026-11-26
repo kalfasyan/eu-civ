@@ -15,5 +15,5 @@ def job(a):
         print('ok',n,flush=True)
     except Exception as e:
         open(p+'.none','w').write(str(e)[:200]); print('none',n,flush=True)
-jobs=[(lat,lon) for lat in range(33,72,3) for lon in range(-12,36,3)]
+jobs=[(lat,lon) for lat in range(33,72,3) for lon in range(-27,48,3)]
 with ThreadPoolExecutor(4) as ex: list(ex.map(job,jobs))

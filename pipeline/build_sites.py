@@ -13,7 +13,7 @@ COUNTRIES = meta['countries']
 cross = load_interim('_cross')
 metro_of = cross['metro_of']
 CX, CY = grid.center(np.arange(grid.size))
-ISO2EU = {'GR': 'EL'}
+ISO2EU = {'GR': 'EL', 'GB': 'UK'}
 
 
 def place(lon, lat, maxr=2):
@@ -42,9 +42,10 @@ def site_meta(cell):
 # ---------------------------------------------------------------- resources (WRI Global Power Plant Database) -------
 EU_ISO3 = {'AUT': 'AT', 'BEL': 'BE', 'BGR': 'BG', 'CYP': 'CY', 'CZE': 'CZ', 'DEU': 'DE', 'DNK': 'DK', 'EST': 'EE', 'GRC': 'EL',
            'ESP': 'ES', 'FIN': 'FI', 'FRA': 'FR', 'HRV': 'HR', 'HUN': 'HU', 'IRL': 'IE', 'ITA': 'IT', 'LTU': 'LT', 'LUX': 'LU',
-           'LVA': 'LV', 'MLT': 'MT', 'NLD': 'NL', 'POL': 'PL', 'PRT': 'PT', 'ROU': 'RO', 'SWE': 'SE', 'SVN': 'SI', 'SVK': 'SK'}
+           'LVA': 'LV', 'MLT': 'MT', 'NLD': 'NL', 'POL': 'PL', 'PRT': 'PT', 'ROU': 'RO', 'SWE': 'SE', 'SVN': 'SI', 'SVK': 'SK',
+           'GBR': 'UK', 'CHE': 'CH', 'NOR': 'NO', 'ISL': 'IS', 'LIE': 'LI', 'TUR': 'TR', 'SRB': 'RS', 'MKD': 'MK', 'MNE': 'ME', 'ALB': 'AL'}
 plants = [{k: (v.replace('\ufffd', '?') if isinstance(v, str) else v) for k, v in r.items()} for r in csv.DictReader(open(RAW + '/misc/gppd.csv', encoding='utf-8')) if r['country'] in EU_ISO3]
-print('EU plants', len(plants))
+print('plants', len(plants))
 SRC = 'wri_gppd'
 TYPES = [
     ('nuclear', 'Nuclear plant', 'energy', '☢️', '#e8d44d', 'Every nuclear power plant in the database. Value is the plant capacity in MW.', 'Nuclear', 0, False),
@@ -299,7 +300,7 @@ for w in whs:
     if c is None:
         continue
     eu.append((w, isos, x, y, c))
-print('EU World Heritage sites on map', len(eu))
+print('World Heritage sites on map', len(eu))
 wonders = []
 
 
@@ -325,8 +326,8 @@ picked, per = [], defaultdict(int)
 for e in cul:  # first: each country's earliest-inscribed cultural site
     if per[e[1][0]] == 0:
         picked.append(e); per[e[1][0]] += 1
-for e in cul:  # then the earliest remaining, at most 3 per country, up to 45
-    if len(picked) >= 45:
+for e in cul:  # then the earliest remaining, at most 3 per country, up to 60
+    if len(picked) >= 60:
         break
     if e not in picked and per[e[1][0]] < 3:
         picked.append(e); per[e[1][0]] += 1
@@ -340,8 +341,8 @@ save_json('wonders', {
     'version': 1, 'vintage': {'heritage': 'UNESCO World Heritage List (sites inscribed to 2023)'}, 'sources': ['unesco_whc'],
     'rules': [
         {'id': 'natural_heritage', 'kind': 'natural', 'kinds': ['natural', 'coastal'],
-         'text': 'The 30 earliest-inscribed natural and mixed UNESCO World Heritage sites on the EU map (ties by site number). Coasts, islands and lagoons are drawn as coastal wonders.'},
+         'text': 'The 30 earliest-inscribed natural and mixed UNESCO World Heritage sites on the map (ties by site number). Coasts, islands and lagoons are drawn as coastal wonders.'},
         {'id': 'cultural_heritage', 'kind': 'landmark', 'kinds': ['landmark', 'monument'],
-         'text': 'Each EU country’s earliest-inscribed cultural UNESCO World Heritage site, then the earliest-inscribed remaining sites up to 45 in all, at most 3 per country. Cathedrals, palaces, castles, temples and mines are drawn as monuments, everything else (old towns, landscapes) as landmarks.'}],
+         'text': 'Each country’s earliest-inscribed cultural UNESCO World Heritage site, then the earliest-inscribed remaining sites up to 60 in all, at most 3 per country. Cathedrals, palaces, castles, temples and mines are drawn as monuments, everything else (old towns, landscapes) as landmarks.'}],
     'national': {'heritage_sites': len(eu)}, 'wonders': wonders})
 print('wonders', len(wonders))

@@ -96,7 +96,7 @@ RULE['county_note'] = 'Not computed for NUTS 3 regions: the source is published 
 # EU reference
 eu_t = defaultdict(float)
 for g, t in sbs.items():
-    if len(g) == 4 and g[:2] in COUNTRIES and not g.endswith('ZZ'):
+    if len(g) == 4 and g[:2] in EU27 and not g.endswith('ZZ'):
         for k, (v, _) in t.items():
             eu_t[k] += v
 eu_total = sum(eu_t[s] for s in SECTIONS)

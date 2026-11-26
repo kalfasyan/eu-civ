@@ -16,8 +16,8 @@ export function mount(ctx) {
   const { states, metros, counties } = data.levels;
 
   el.insertAdjacentHTML("beforeend", tiles([
-    { label: "Disposable income", value: dollars(n.median_income), sub: "per person, EU27" },
-    { label: "GDP per person", value: dollars(n.gdp / n.population), sub: "EU27" },
+    { label: "Disposable income", value: dollars(n.median_income), sub: "per person, whole map" },
+    { label: "GDP per person", value: dollars(n.gdp / n.population), sub: "whole map" },
     { label: "Unemployment", value: pct(n.unemployment), sub: data.vintage },
   ]));
 
