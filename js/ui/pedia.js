@@ -38,6 +38,17 @@ export function initPedia(data) {
       cities show the municipality's own population (jobs and GDP are their region's, scaled by population share), except in Türkiye,
       where a metropolitan municipality covers its whole province.
       <b>Regions</b> are the ${data.world.counties.length.toLocaleString("en")} NUTS 3 regions (the map's "counties"); the UK's are its NUTS 2021 (ITL 2021) regions.</p>
+      <h4>Time, climate and the future</h4>
+      <p>Lenses with history (Population, GDP vs EU average, Unemployment, Farm and Factory jobs) have a <b>time dial</b> that
+      replays Eurostat's yearly series from 2000 to the latest year, on today's borders. The <b>Climate</b> lenses (Hot days,
+      Tropical nights) show the 1991–2020 ERA5 average per NUTS 2 region and have a <b>2050 dial</b>. The dial uses the
+      EURO-CORDEX ensemble median for RCP4.5 ("if emissions fall") or RCP8.5 ("if they don't"), as 21-year means shifted
+      onto ERA5, with the 17th to 83rd percentile of the models as the range (Copernicus European Climate Data Explorer
+      v2.0). A <b>climate twin</b> is the region whose 1991–2020 climate is closest to a region's 2050 climate, at least
+      300 km away. <b>Low-lying land</b> is land at or below 5 m near the sea. Dykes and storm surges are not modelled,
+      so it shows exposure, not a flood forecast.</p>
+      <p>For sources and versions, resolution, uncertainty, known gaps, licences, citing and rebuilding the data, see the
+      <a href="https://github.com/kalfasyan/eu-civ/blob/main/docs/FAQ.md" target="_blank" rel="noopener">researcher FAQ</a>.</p>
       <h4>Credits</h4>
       <p>The map engine, art and interface are from Andrej Karpathy's <a href="https://karpathy.ai/usaciv/" target="_blank" rel="noopener">usaciv</a>
       (MIT licence, via the poro/usaciv fork). This European edition swaps in a new data pipeline built from European sources.</p>
@@ -82,15 +93,15 @@ export function initPedia(data) {
       <h4>${icon("r-hydro", "💧", { size: 16 })} Water</h4>
       <table>${t.water.filter((x) => x.id > 0).map(row).join("")}</table>
       <h4>Beyond the borders</h4>
-      <p class="muted">Foreign land (Canada, Mexico, and in the Caribbean Cuba and the Bahamas) is drawn under a light fog:
-      it is shown for context and not mapped in detail.</p>`;
+      <p class="muted">Land outside the map's countries is drawn for context only and not mapped in detail.</p>`;
     },
     Lenses: () => `
       ${h2("layers", "▤", "Lenses")}
-      <p>Lenses recolour the map by one measure, built from county data (${esc(data.lenses.vintage)}). Each hex is sampled
-      at 7 points. A county covering some of them is assumed to cover that share of the hex. Small dense counties that no
-      sample hits (Manhattan, Virginia's independent cities) are added to the hex containing their centre. Income and home
-      value are averaged over the counties in a hex, weighted by population.</p>
+      <p>Lenses recolour the map by one measure (${esc(data.lenses.vintage)}). Each hex is sampled every 4 km. Most lenses
+      take a mean over the NUTS 3 regions those samples fall in, weighted by sample count and population density, so a hex
+      shared by a city and farmland leans towards the city. Indicators published for NUTS 2 regions (unemployment, income,
+      life expectancy, R&amp;D and others) give the same value to every NUTS 3 region inside them. The Climate lenses are
+      per NUTS 2 region: each hex shows the value of its own NUTS 3 region's NUTS 2 unit, with no blending across borders.</p>
       <p>The legend shows how many hexes fall at each value. Hover or drag on it to show only that range on the map.</p>
       ${(data.lenses.groups || [{ id: null, name: "" }]).map((g) => {
         const ls = data.lenses.lenses.filter((l) => !g.id || l.group === g.id);
