@@ -12,6 +12,9 @@ defines none (Türkiye, the Western Balkans, Iceland, Liechtenstein), a city is 
 and at each capital, one per region, and the towns of Leuven and Edessa are added. These single-place cities show their own
 municipality's population (Eurostat GISCO LAU), not their whole region's.
 
+Around 3,800 more towns of 15,000+ people appear as grey names as you zoom in. They have no stats: they are there so you
+can find your way (`data/places.json`, from Eurostat GISCO LAU municipalities and Natural Earth).
+
 **Live:** https://kalfasyan.github.io/eu-civ/
 
 ![EU Civ map](docs/screenshot.jpg)
@@ -88,7 +91,8 @@ python3 build_history.py   # yearly series for the time dial (data/history.json)
 python3 build_advisor.py   # pay, rent, jobs and languages per region for the Where to live advisor (data/advisor.json)
 python3 build_climate.py   # the 2050 dial, climate twins and low-lying land (data/climate.json) and the Climate lenses
 python3 build_more_lenses.py  # children, growth since 2000, employment rate, temperature, warming, rainfall, crops, forest height
-python3 build_ba_xk.py     # last: adds Bosnia and Herzegovina and Kosovo to every file in data/ (see below)
+python3 build_ba_xk.py     # adds Bosnia and Herzegovina and Kosovo to every file in data/ (see below)
+python3 build_places.py    # after build_ba_xk: grey town names without stats (data/places.json)
 ```
 
 `build_ba_xk.py` adds the two Western Balkan countries that have no NUTS regions. Each becomes one region (`BA000`,

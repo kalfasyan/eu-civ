@@ -678,5 +678,59 @@ export function drawBanners(ctx, cam, w, state, yields, nation = state.nation) {
 
     hits.push({ x, y: y - tab, w: width, h: height + tab, city, specialty: m.spec?.key ?? null });
   }
+  drawPlaces(ctx, cam, state, Rpx, blocked, placed, focus);
   return hits;
+}
+
+// ---- grey context places --------------------------------------------------------------------------------------------
+// Towns without stats (data/places.json, pipeline/build_places.py): a grey dot and a name at the town's real position,
+// placed after the city banners into the room they leave, biggest first. Not interactive.
+const PLACE_FONT = `italic 500 10.5px ${SERIF}`;
+const PLACE_GAP = 3; // collision margin on each side
+const placeWidths = new Map(); // name → measured text width
+
+/** Smallest population of a context place shown at this zoom (none at the national view). */
+function placeFloor(Rpx) {
+  return Rpx < 16 ? Infinity : Rpx < 24 ? 1e5 : Rpx < 34 ? 5e4 : Rpx < 55 ? 2.5e4 : 0;
+}
+
+function drawPlaces(ctx, cam, state, Rpx, blocked, placed, focus) {
+  const places = state.places;
+  if (!places || !places.length) return;
+  const floor = placeFloor(Rpx);
+  if (floor === Infinity) return;
+  const budget = Math.max(8, Math.round((cam.w * cam.h) / (120 * 34) * 0.12));
+  let shown = 0;
+  ctx.save();
+  ctx.font = PLACE_FONT;
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.globalAlpha = focus != null ? FOCUS_FADE : 0.92;
+  for (let k = 0; k < places.length && shown < budget; k++) {
+    const p = places[k];
+    if (p[3] < floor) break; // sorted by population
+    const [sx, sy] = cam.toScreen(p[1], p[2]);
+    if (sx < -4 || sy < -8 || sx > cam.w + 4 || sy > cam.h + 8) continue;
+    let tw = placeWidths.get(p[0]);
+    if (tw === undefined) {
+      tw = Math.ceil(ctx.measureText(p[0]).width);
+      placeWidths.set(p[0], tw);
+    }
+    const rect = { x: sx - 4 - PLACE_GAP, y: sy - 7 - PLACE_GAP, w: tw + 11 + 2 * PLACE_GAP, h: 14 + 2 * PLACE_GAP };
+    if (blocked(rect)) continue;
+    placed.push(rect);
+    shown++;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 2.4, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(205,205,200,0.95)";
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.2;
+    ctx.fill();
+    ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.strokeText(p[0], sx + 6, sy);
+    ctx.fillStyle = "rgba(214,214,208,0.95)";
+    ctx.fillText(p[0], sx + 6, sy);
+  }
+  ctx.restore();
 }

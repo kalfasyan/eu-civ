@@ -64,6 +64,14 @@ Mostly by an official definition, and then by size when deciding what fits on sc
   smallest. A population floor falls as you zoom in: about 2 million at the widest view, then 700,000, 250,000, 150,000,
   100,000, 40,000, and every city when you are fully zoomed in. A screen-area budget and a rule that banners never
   overlap hide the rest. So at any zoom, the cities you see are the largest ones that fit (`js/render/banners.js`).
+- *Grey town names.* About 3,800 other towns of 15,000+ people are shown as a grey dot and name, without stats, in the
+  room the banners leave: from 100,000 people at a regional zoom, down to every town at the closest zoom. Their
+  population is the municipality's (Eurostat GISCO LAU, 2021 to 2024), with a city split into districts summed into
+  one; the dot sits at Natural Earth's point for the town where there is one, else at the municipality's centre. Where
+  municipalities are not towns (Greek and Cypriot local communities, Portuguese parishes, Irish electoral areas,
+  Lithuanian districts) or have no population (UK, Türkiye, Montenegro, Iceland, Bosnia and Herzegovina, Kosovo),
+  the towns are Natural Earth's populated places (city-proper population), which list fewer small towns. Places that
+  already have a banner, or sit within 14 km of one, are left out (`pipeline/build_places.py`).
 
 The code is in `pipeline/build_econ.py` (city definitions) and `pipeline/lau.py` (municipal populations).
 
@@ -477,7 +485,8 @@ the README in `raw/`, then from `pipeline/`:
 ```
 python3 build_world.py && python3 build_econ.py && python3 build_lenses.py && python3 build_sites.py \
   && python3 build_people.py && python3 build_sources.py && python3 build_history.py \
-  && python3 build_advisor.py && python3 build_climate.py && python3 build_more_lenses.py && python3 build_ba_xk.py
+  && python3 build_advisor.py && python3 build_climate.py && python3 build_more_lenses.py && python3 build_ba_xk.py \
+  && python3 build_places.py
 ```
 
 **Do I need a Copernicus key?**
