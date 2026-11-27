@@ -17,6 +17,7 @@ import { createBannerFocus } from "./bannerFocus.js";
 import { render, goToSection } from "./screen.js";
 import { icon } from "../../ui/icon.js";
 import { esc } from "../../format.js";
+import { toLonLat } from "../../app/geo.js";
 
 const MODE = "city";
 const CSS_HREF = new URL("../../../css/cityview.css", import.meta.url).href;
@@ -115,6 +116,7 @@ export async function install(app) {
     const m = buildModel(app, city);
     m.cityList = app.data.cities;
     m.landColor = layer.landColor;
+    m.lonlat = toLonLat(app.w, city.x, city.y);
     cv.model = m;
     layer.set(m); // a new model restarts the border animation
     banners.set(m);
