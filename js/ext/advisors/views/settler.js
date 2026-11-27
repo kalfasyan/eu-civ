@@ -20,8 +20,9 @@ const PARTS = [
   { key: "nature", label: "Nature", tip: "Forest share of the region" },
   { key: "momentum", label: "Momentum", tip: "Growth in jobs and population over the last ten years" },
   { key: "calm", label: "Low unemployment", tip: "Unemployment rate (NUTS 2)" },
+  { key: "climate", label: "Mild summers", tip: "Fewer hot days and warm nights. For longer stays it looks ahead: 2035 for 10 years, 2050 for 25 (the middle of the two emissions paths)" },
 ];
-const DEFAULT = { t: "software", pay: null, home: null, anchors: [], langs: ["en"], eng: true, w: { money: 35, jobs: 35, nature: 15, momentum: 15, calm: 0 }, size: "any", years: 10, view: "fit" };
+const DEFAULT = { t: "software", pay: null, home: null, anchors: [], langs: ["en"], eng: true, w: { money: 35, jobs: 35, nature: 10, momentum: 15, calm: 0, climate: 10 }, size: "any", years: 10, view: "fit" };
 const FIT_RAMP = ["#1d2a3a", "#33405a", "#5b5a6e", "#8f7a4e", "#c9a45c", "#ffe9a8"];
 const GAP_RAMP = ["#8c2d3c", "#c4594b", "#e7c6a0", "#c6d8c2", "#5fae9a", "#1f6b6b"];
 
@@ -40,7 +41,7 @@ function decode(s, trades) {
   if (anchors) b.anchors = anchors.split("_").map((x) => { const [id, h] = x.split("."); return { id, h: +h || 2 }; }).filter((a) => a.id);
   if (langs) b.langs = langs.split(".").filter((l) => LANG_NAME[l]);
   b.eng = eng !== "0";
-  if (w) w.split(".").forEach((v, k) => { if (PARTS[k]) b.w[PARTS[k].key] = Math.max(0, Math.min(100, +v || 0)); });
+  if (w) w.split(".").forEach((v, k) => { if (PARTS[k]) b.w[PARTS[k].key] = Math.max(0, Math.min(100, +v || 0)); }); // older links have fewer weights: the rest keep their defaults
   if (["any", "big", "quiet"].includes(size)) b.size = size;
   if ([2, 10, 25].includes(+years)) b.years = +years;
   if (["fit", "salary"].includes(view)) b.view = view;
@@ -71,7 +72,7 @@ const euroK = (v) => (fin(v) ? `€${(v / 1000).toFixed(v >= 1e5 ? 0 : 1)}k` : "
 
 export async function mount(ctx) {
   const { app, data, el: host, link } = ctx;
-  const [A, H] = await Promise.all([app.loadData("advisor"), app.loadData("history").catch(() => null)]);
+  const [A, H, C] = await Promise.all([app.loadData("advisor"), app.loadData("history").catch(() => null), app.loadData("climate").catch(() => null)]);
   if (!A) {
     host.insertAdjacentHTML("beforeend", `<p class="adv-empty pad">The advisor's data file (advisor.json) is missing.</p>`);
     return {};
@@ -204,12 +205,13 @@ export async function mount(ctx) {
   const surprise = el("div", "st-surprise");
   res.appendChild(surprise);
 
-  host.insertAdjacentHTML("beforeend", sourcesHtml(data, ["eurostat_gdp", "eurostat_emp", "eurostat_census", "eurostat_lfs", "worldcover"], [
+  host.insertAdjacentHTML("beforeend", sourcesHtml(data, ["eurostat_gdp", "eurostat_emp", "eurostat_census", "eurostat_lfs", "worldcover", "copernicus_ecde"], [
     "Pay is estimated: the national average for your occupation group in your sector (Structure of Earnings Survey 2022, firms with 10+ staff), scaled by the region's overall pay level. Your own pay, if you enter it, rescales every region by the same factor.",
     "Take-home pay uses each country's tax and social contributions for a single person without children (earn_nt_net). Bonuses, local taxes and your own situation will differ.",
     "Rent is the roughest number. Eurostat's only rent for every country is a 1-bed flat in the capital (and a few cities with EU sites), from a survey used to set EU staff pay. Every other region is estimated from it by household income and density, shown with a hollow dot.",
     "\"English is enough at work\" keeps every region in play; where you don't speak the local language the card says so, with the share of adults who speak their best foreign language well (Adult Education Survey, edat_aes_l31), usually English.",
     "Travel time is a straight line with a detour factor at about 90 km/h, not a timetable.",
+    "Mild summers counts hot days (30 °C) and warm nights (20 °C) per NUTS 2 region. A 2-year stay uses today's climate; 10 and 25 years use the models' path to 2035 and 2050, halfway between the two emissions paths (Copernicus ECDE).",
     "The UK and Türkiye have no comparable pay data, and a few Balkan countries no occupation census, so they are left out of the money and jobs parts.",
   ]));
 
@@ -252,6 +254,14 @@ export async function mount(ctx) {
       r.momentum = fin(jg) || fin(pg) ? 0.6 * (jg ?? pg) + 0.4 * (pg ?? jg) : null;
       r.unemp = val("unemployment", i);
       r.calm = fin(r.unemp) ? -r.unemp : null;
+      // climate: hot days + warm nights in the year the stay is heading for (a 2-year stay: today, 1991–2020 + trend)
+      const u = C ? C.unit_of[i] : -1;
+      if (u >= 0) {
+        const yi = Math.min(C.years.length - 1, (B.years === 2 ? 2026 : B.years === 10 ? 2035 : 2050) - C.years[0]);
+        const at = (k) => (C.path[k].s45.mid[u][yi] + C.path[k].s85.mid[u][yi]) / 2;
+        r.hot = at("hot"); r.trop = at("trop"); r.hotNow = C.base.hot[u];
+        r.climate = -(r.hot + r.trop);
+      } else r.climate = null;
       r.density = val("density", i);
       r.anchorH = anchors.map((a) => hoursTo(i, a.city));
       r.engOnly = !speaks;
@@ -264,7 +274,7 @@ export async function mount(ctx) {
     const parts = PARTS.map((p) => p.key).filter((p) => W[p] > 0);
     if (B.size !== "any") { parts.push("city"); W.city = 20; }
     for (const r of R) r.city = fin(r.density) ? (B.size === "big" ? Math.log(r.density) : -Math.log(r.density)) : null;
-    const keyOf = { money: "leftPPS", jobs: "jobs", nature: "nature", momentum: "momentum", calm: "calm", city: "city" };
+    const keyOf = { money: "leftPPS", jobs: "jobs", nature: "nature", momentum: "momentum", calm: "calm", climate: "climate", city: "city" };
     const ok = R.filter((r) => r.ok);
     // rank 0–100 within the regions still in play
     for (const p of parts) {
@@ -325,6 +335,7 @@ export async function mount(ctx) {
   }
 
   const name = (i) => { const r = rowByIdx.get(i); return r ? `${r.name}` : raw.counties[i].name; };
+  const stayYear = () => (B.years === 2 ? "2026" : B.years === 10 ? "2035" : "2050");
   const sub = (i) => { const r = rowByIdx.get(i); return [r?.v.metro && r.v.metro !== r.name ? r.v.metro : null, ctry(i)].filter(Boolean).join(", "); };
   const dot = (q) => `<i class="st-dot ${q}" title="${q === "m" ? "measured" : q === "d" ? "derived from official data" : "estimated"}"></i>`;
 
@@ -337,6 +348,7 @@ export async function mount(ctx) {
       nature: (r) => `${Math.round((r.nature || 0) * 100)}% of the land is forest`,
       momentum: (r) => `jobs and people grew ${r.momentum >= 0 ? "+" : ""}${(r.momentum * 100).toFixed(0)}% in ten years`,
       calm: (r) => `unemployment is ${(r.unemp * 100).toFixed(1)}%`,
+      climate: (r) => `summers stay mild (${Math.round(r.hot)} hot days a year by ${stayYear()})`,
       city: (r) => (B.size === "big" ? "it's a dense, busy place" : "it's quiet and open"),
     };
     const best = parts.slice(0, 2).filter((x) => x.v >= 60).map((x) => say[x.p](r));
@@ -366,6 +378,7 @@ export async function mount(ctx) {
         <span>${dot(surveyed ? "d" : "e")}Rent, 1-bed${surveyed ? "" : " (estimate)"}</span><b>−${euro(r.rent)}</b>
         <span><strong>Left each month</strong></span><b class="st-left">${euro(r.left)}</b>
         <span>${dot("m")}Your trade vs EU</span><b>${fin(r.jobs) ? `${r.jobs.toFixed(1)}×` : "–"}</b>
+        ${fin(r.hot) ? `<span>${dot("e")}Hot days a year, 1991–2020 → ${stayYear()}</span><b>${Math.round(r.hotNow)} → ${Math.round(r.hot)}</b>` : ""}
         <span>${dot("m")}Jobs and people, 10 yrs</span><b>${fin(r.momentum) ? `${r.momentum >= 0 ? "+" : "−"}${Math.abs(r.momentum * 100).toFixed(0)}%` : "–"}</b>
         ${fin(r.need) ? `<span>${dot("d")}You'd need to earn</span><b>${euroK(r.need)} / yr</b>` : ""}
       </div>

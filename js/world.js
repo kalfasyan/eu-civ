@@ -172,6 +172,10 @@ export function lensScale(lens) {
     const l0 = Math.log(d0), l1 = Math.log(d1);
     return (v) => (Math.log(Math.max(v, 1e-9)) - l0) / (l1 - l0);
   }
+  if (lens.scale === "sqrt") {
+    const s0 = Math.sqrt(Math.max(d0, 0)), s1 = Math.sqrt(d1);
+    return (v) => (Math.sqrt(Math.max(v, 0)) - s0) / (s1 - s0);
+  }
   return (v) => (v - d0) / (d1 - d0);
 }
 
