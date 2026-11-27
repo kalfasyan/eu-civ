@@ -37,7 +37,7 @@ async function loadJSON(name, optional = false) {
 
 // Optional data files (docs/DATA_CONTRACTS.md). Small map-layer files are fetched right after the first frame; the
 // others only when something asks for them (app.loadData(name)). A missing file (404) loads as null.
-const EAGER_DATA = ["infrastructure", "wonders"];
+const EAGER_DATA = ["infrastructure", "wonders", "places"];
 const DATA_NAME = /^[a-z0-9_-]+$/;
 
 // render/snapshot.js draws a whole view into any canvas; optional, with a local fallback.
@@ -1155,6 +1155,11 @@ async function main() {
     if (!dataLoads.has(name)) {
       dataLoads.set(name, loadJSON(name, true).then((d) => {
         app.data[name] = d ?? null;
+        // grey context places (no stats) under the city banners: [[name, x, y, population], ...], biggest first
+        if (name === "places" && Array.isArray(d?.places)) {
+          state.places = d.places;
+          requestDraw();
+        }
         events.emit("data", { name, data: app.data[name] });
         return app.data[name];
       }));
