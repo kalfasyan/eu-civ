@@ -2,13 +2,14 @@
 
 A Civilization-style hex map of Europe built from real public data: the 27 EU countries plus every other country
 Eurostat maps by region (the UK, Switzerland, Norway, Iceland, Liechtenstein, Türkiye, Serbia, North Macedonia,
-Montenegro and Albania). It has 1,499 NUTS 3 regions, terrain from elevation and land cover, and yields from Eurostat
+Montenegro and Albania), plus Bosnia and Herzegovina and Kosovo\*, which have no NUTS regions and are mapped as one region
+each from Eurostat's national figures. It has 1,499 NUTS 3 regions (1,501 regions in all), terrain from elevation and land cover, and yields from Eurostat
 (Food = farm jobs, Production = industry + construction jobs, Gold = GDP, Science = ICT + professional jobs,
 Culture = arts and services jobs).
 
-It also has 325 cities. Most are Eurostat metro regions, and their numbers cover the whole metro region. Where Eurostat
+It also has 327 cities. Most are Eurostat metro regions, and their numbers cover the whole metro region. Where Eurostat
 defines none (Türkiye, the Western Balkans, Iceland, Liechtenstein), a city is placed at every place of 250,000+ people
-and at each capital, and the towns of Leuven and Edessa are added. These single-place cities show their own
+and at each capital, one per region, and the towns of Leuven and Edessa are added. These single-place cities show their own
 municipality's population (Eurostat GISCO LAU), not their whole region's.
 
 **Live:** https://kalfasyan.github.io/eu-civ/
@@ -33,7 +34,7 @@ the data pipeline in `pipeline/` is new.
   the coast. It shows exposure only: dykes and storm surges are not modelled.
 - **City View** and **advisors**, including **Where to live**. It scores every region for a trade by take-home pay
   minus rent, jobs in that field, nature, momentum, unemployment and mild summers. Rents are estimated outside the
-  cities Eurostat surveys. There is no pay data for the UK, Türkiye, Liechtenstein or Montenegro.
+  cities Eurostat surveys. There is no pay data for the UK, Türkiye, Liechtenstein, Montenegro or Kosovo.
 - **From space**: City View's Satellite section shows the city's latest clear Sentinel-2 image, read in the browser from
   AWS Open Data (Element84 Earth Search, no account), and can swipe it against a summer of an earlier year. The city
   panel's *See it from space* link opens the place in [Vresto Lite](https://vresto-yannis20.vercel.app/)
@@ -69,6 +70,7 @@ Inputs to place in `raw/` before running:
 - `uk/` ONS regional GDP and GVA-by-industry workbooks and a BRES extract from Nomis (fetched automatically by `pipeline/uk.py`)
 - `misc/` WRI Global Power Plant Database (`gppd.csv`), UNESCO World Heritage list (`whc_sites.csv`), UN/LOCODE (`unlocode.csv`), OurAirports (`airports.csv`)
 - `usaciv_world.json`: usaciv's `web/data/world.json`, used only as the template for the terrain rule tables (or set `USACIV_WORLD`)
+- `gisco/CNTR_RG_01M_2024_3035.geojson` from [GISCO countries](https://gisco-services.ec.europa.eu/distribution/v2/countries/) (Bosnia and Herzegovina's land area, for `build_ba_xk.py`)
 
 Eurostat tables are fetched on demand from the JSON-stat API and cached in `raw/eurostat/`. The UK left Eurostat's regional
 statistics after Brexit, so its population, GDP and jobs come from the ONS (www.ons.gov.uk) and Nomis (www.nomisweb.co.uk).
@@ -86,7 +88,16 @@ python3 build_history.py   # yearly series for the time dial (data/history.json)
 python3 build_advisor.py   # pay, rent, jobs and languages per region for the Where to live advisor (data/advisor.json)
 python3 build_climate.py   # the 2050 dial, climate twins and low-lying land (data/climate.json) and the Climate lenses
 python3 build_more_lenses.py  # children, growth since 2000, employment rate, temperature, warming, rainfall, crops, forest height
+python3 build_ba_xk.py     # last: adds Bosnia and Herzegovina and Kosovo to every file in data/ (see below)
 ```
+
+`build_ba_xk.py` adds the two Western Balkan countries that have no NUTS regions. Each becomes one region (`BA000`,
+`XK000`), like Montenegro's single NUTS 3 region, with Eurostat's national tables and the same rules as the rest of the
+map; whatever Eurostat does not publish for them stays empty. It must run after every other step, and again after any
+of them is re-run. Coverage is described in [docs/FAQ.md](docs/FAQ.md#bosnia-and-herzegovina-and-kosovo).
+
+\*Kosovo: this designation is without prejudice to positions on status, and is in line with UNSCR 1244/1999 and the ICJ
+Opinion on the Kosovo declaration of independence.
 
 `build_climate.py` downloads the European Climate Data Explorer's NUTS-aggregated indicators from the Copernicus Climate
 Data Store. It needs a free CDS account: put your personal access token in `CDSAPI_KEY` and accept the dataset's CC-BY

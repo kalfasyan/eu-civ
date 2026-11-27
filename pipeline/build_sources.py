@@ -58,6 +58,18 @@ SOURCES = [
     s('eurostat_nat', 'National accounts and Labour Force Survey by industry', EL, 'https://ec.europa.eu/eurostat/web/national-accounts', LIC,
       'Value added and employment by industry for whole countries. Used where a country publishes no regional jobs (Switzerland, Türkiye, Albania, Montenegro): a region’s jobs in an industry are its value added there ÷ the country’s value added per worker, scaled to the national total. Iceland and Liechtenstein have no regional accounts, so their national GDP and jobs are split by population.',
       ['Jobs estimates outside the EU'], '2023–2025', ['nama_10_a10', 'nama_10_a10_e', 'lfsa_egan2', 'nama_10_gdp']),
+    s('eurostat_balkans', 'National statistics for Bosnia and Herzegovina and Kosovo', EL, 'https://ec.europa.eu/eurostat/web/main/data/database', LIC,
+      'Neither country has NUTS regions, so each is one region on the map, filled from Eurostat’s national tables: population, ages, GDP (also in PPS), '
+      'jobs and value added by industry, unemployment, education, R&D, high-tech jobs, broadband, pay and prices. Measures Eurostat does not publish for a '
+      'country are left empty. Kosovo’s latest population is 1 January 2022. *Kosovo: this designation is without prejudice to positions on status, and is '
+      'in line with UNSCR 1244/1999 and the ICJ Opinion on the Kosovo declaration of independence.',
+      ['Bosnia and Herzegovina', 'Kosovo'], '2021–2025 (Kosovo population 2022)',
+      ['demo_gind', 'demo_pjan', 'demo_pjanind', 'nama_10_gdp', 'nama_10_pc', 'nama_10_a10', 'nama_10_a10_e', 'lfsa_urgan', 'edat_lfse_03',
+       'rd_e_gerdtot', 'htec_emp_nat2', 'isoc_ci_it_h']),
+    {'id': 'gisco_countries', 'title': 'Countries (GISCO)', 'publisher': 'Eurostat GISCO', 'homepage': 'https://ec.europa.eu/eurostat/web/gisco/geodata/administrative-units/countries',
+     'license': '© EuroGeographics for the administrative boundaries',
+     'description': 'Country outlines at 1:1 million, used for the land area of Bosnia and Herzegovina, which Eurostat does not publish. Kosovo’s outline is the Nuts2json outline of Serbia minus Serbia’s NUTS 3 regions, which leave Kosovo out.',
+     'used_for': ['Bosnia and Herzegovina', 'Kosovo'], 'vintage': '2024', 'files': []},
     {'id': 'gisco_lau', 'title': 'Local administrative units (LAU) with population', 'publisher': 'Eurostat GISCO', 'homepage': 'https://ec.europa.eu/eurostat/web/gisco/geodata/statistical-units/local-administrative-units',
      'license': '© EuroGeographics for the administrative boundaries', 'description': 'Municipality boundaries and populations (2021–2024), used for the population of towns and of cities outside Eurostat’s metro regions.',
      'used_for': ['Town populations'], 'vintage': '2021–2024', 'files': []},
