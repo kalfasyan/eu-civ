@@ -428,3 +428,26 @@ button.cv-cmp-n:hover { color: #fff3cf; text-decoration-color: var(--gold); }
   .cv-tabs button { flex: 1 1 auto; padding: 5px 4px; }
   .cv-tabs button:not(.on) span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
+
+/* Satellite (From space): Sentinel-2 crop, with the earlier image clipped to the left of the swipe line. */
+.cv-sat-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.cv-sat-bar .cv-seg { margin-bottom: 0; }
+.cv-sat-cmp { font-size: 11px; color: var(--ink-dim); display: inline-flex; align-items: center; gap: 6px; }
+.cv-sat-cmp select { font: inherit; color: var(--ink, #eee); background: rgba(0,0,0,.35); border: 1px solid rgba(201,164,92,.45); border-radius: 4px; padding: 3px 4px; }
+.cv-sat { position: relative; margin-top: 8px; aspect-ratio: 1; width: 100%; border-radius: 6px; overflow: hidden;
+  background: rgba(0,0,0,.35); border: 1px solid rgba(201,164,92,.25); }
+.cv-sat canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cv-sat canvas[hidden] { display: none; }
+.cv-sat canvas[data-then] { clip-path: inset(0 calc(100% - var(--cut)) 0 0); }
+.cv-sat.comparing::after { content: ""; position: absolute; top: 0; bottom: 0; left: var(--cut); width: 2px; margin-left: -1px;
+  background: var(--gold-bright, #f0d48a); box-shadow: 0 0 4px rgba(0,0,0,.7); pointer-events: none; }
+.cv-sat input[type="range"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+.cv-sat-cut { position: absolute; left: 6px; right: 6px; bottom: 6px; display: flex; justify-content: space-between; pointer-events: none; }
+.cv-sat-cut span { font-size: 11px; padding: 2px 6px; border-radius: 3px; background: rgba(0,0,0,.6); color: #fff; }
+.cv-sat-msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; font-size: 12px; color: var(--ink-dim); }
+.cv-sat-msg[hidden] { display: none; }
+.cv-sat-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12px; }
+.cv-sat-step { min-width: 32px; min-height: 28px; font-size: 16px; line-height: 1; cursor: pointer; color: var(--gold-bright, #f0d48a);
+  background: rgba(0,0,0,.25); border: 1px solid rgba(201,164,92,.45); border-radius: 4px; }
+.cv-sat-step:disabled { opacity: .35; cursor: default; }
+.cv-sec .cv-note a { color: var(--gold-bright); }

@@ -34,6 +34,10 @@ the data pipeline in `pipeline/` is new.
 - **City View** and **advisors**, including **Where to live**. It scores every region for a trade by take-home pay
   minus rent, jobs in that field, nature, momentum, unemployment and mild summers. Rents are estimated outside the
   cities Eurostat surveys. There is no pay data for the UK, Türkiye, Liechtenstein or Montenegro.
+- **From space**: City View's Satellite section shows the city's latest clear Sentinel-2 image, read in the browser from
+  AWS Open Data (Element84 Earth Search, no account), and can swipe it against a summer of an earlier year. The city
+  panel's *See it from space* link opens the place in [Vresto Lite](https://vresto-yannis20.vercel.app/)
+  ([vresto](https://github.com/kalfasyan/vresto)).
 - **Almanac**: what every number means, with every source, licence and link.
 
 **Researchers:** [docs/FAQ.md](docs/FAQ.md) covers data sources and versions, resolution, how values are mapped onto

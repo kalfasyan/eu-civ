@@ -1,6 +1,7 @@
 import { css } from "../color.js";
 import { esc } from "../format.js";
 import { isCapital } from "../world.js";
+import { toLonLat, vrestoUrl } from "../app/geo.js";
 import { yieldGrid, amenities, industries, gdpRow, popLine, growthSpan, showPanel, hidePanel } from "./infoPanel.js";
 
 /**
@@ -21,6 +22,12 @@ export function openCityPanel(city, ctx) {
     .join("");
 
   const growth = growthSpan(city, n);
+  // "See it from space": the city in Vresto Lite (latest Sentinel-2 imagery, in the browser, no account).
+  const ll = toLonLat(w, city.x, city.y);
+  const space = ll
+    ? `<a class="cp-space" href="${esc(vrestoUrl(ll))}" target="_blank" rel="noopener"
+        title="Open the latest Sentinel-2 satellite images of ${esc(city.name)} in Vresto Lite (new tab)">🛰 See it from space ›</a>`
+    : "";
 
   showPanel({
     kind: "city",
@@ -28,7 +35,7 @@ export function openCityPanel(city, ctx) {
     title: city.name,
     titleHtml: `${isCapital(city) ? `<span class="cap" title="National capital">★</span> ` : ""}${esc(city.name)}`,
     sub: `${esc(city.full || "")}${states ? `<div class="chips">${states}</div>` : ""}`,
-    headExtra: popLine(city, growth),
+    headExtra: popLine(city, growth) + space,
     sections: [
       { title: "Yields", html: `<div class="yield-grid">${yieldGrid(nation, city.yields)}</div>` },
       { title: "Amenities &amp; Housing", html: amenities(city, n) + gdpRow(city) },
