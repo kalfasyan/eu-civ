@@ -287,6 +287,8 @@ for t in tables['cover']:
 
 world = {
     'version': 2, 'grid': grid.to_dict(), 'width': round(W, 1), 'height': round(H, 1), 'margin': MARGIN,
+    # map km -> EPSG:3035 for the frontend's lon/lat (js/app/geo.js): X = (x + min_x - margin) km, Y = (max_y + margin - y) km
+    'projection': {'min_x': round(minx, 3), 'max_y': round(maxy, 3), 'margin': MARGIN, 'crs': 'EPSG:3035'},
     'owner': owner.tolist(), 'county': county.tolist(), 'elev': elev.tolist(), 'elev_max': elev_max.tolist(),
     'water': water.tolist(), 'relief': relief.tolist(), 'cover': cover.tolist(),
     'pct': {k: v.tolist() for k, v in pct.items()}, 'tables': tables, 'states': states, 'counties': counties,

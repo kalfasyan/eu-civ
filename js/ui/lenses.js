@@ -20,6 +20,9 @@ export function formatLensValue(lens, v) {
     case "pct": return (v * 100).toFixed(v < 0.1 ? 1 : 0) + "%";
     case "int": return intish(v) + (lens.unit?.startsWith("people") ? " /km²" : lens.unit ? " " + lens.unit : "");
     case "minutes": return v.toFixed(0) + " min";
+    case "deg": return (lens.signed && v > 0 ? "+" : "") + v.toFixed(1) + " °C";
+    case "mm": return Math.round(v).toLocaleString("en-US") + " mm";
+    case "m": return v.toFixed(1) + " m";
     case "years": return v.toFixed(1) + " yrs";
     case "float": return (v < 10 ? v.toFixed(1) : compact(v)) + (lens.unit ? " " + lens.unit : "");
   }

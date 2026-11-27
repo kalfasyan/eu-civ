@@ -13,8 +13,8 @@ def s(id, title, publisher, homepage, license, description, used_for, vintage, t
 
 SOURCES = [
     s('eurostat_demo', 'Regional population and demography', EL, 'https://ec.europa.eu/eurostat/web/population-demography', LIC,
-      'Population on 1 January by NUTS 3 region and 5-year age group, median age and the yearly series used for growth (2021–2025, compared on today’s 2024 NUTS borders).',
-      ['City & country populations', 'Growth', 'Age lenses', 'City View ages'], '1 January 2025', ['demo_r_pjanaggr3', 'demo_r_pjangrp3', 'demo_r_pjanind3']),
+      'Population on 1 January by NUTS 3 region and 5-year age group, median age, the share of children under 15 and the yearly series used for growth (2021–2025, and 2000–2025 for Growth since 2000, compared on today’s 2024 NUTS borders).',
+      ['City & country populations', 'Growth', 'Growth since 2000', 'Age lenses', 'Children', 'City View ages'], '1 January 2025', ['demo_r_pjanaggr3', 'demo_r_pjangrp3', 'demo_r_pjanind3']),
     s('eurostat_gdp', 'Regional GDP', EL, 'https://ec.europa.eu/eurostat/web/national-accounts', LIC,
       'Gross domestic product at current market prices by NUTS 3 region, in euros and in purchasing power standards per inhabitant. Gold is GDP.',
       ['Gold yield', 'GDP lenses', 'Economy advisor'], '2023–2024', ['nama_10r_3gdp']),
@@ -26,8 +26,12 @@ SOURCES = [
     s('eurostat_hhinc', 'Household income by NUTS 2 region', EL, 'https://ec.europa.eu/eurostat', LIC, 'Net disposable income of private households per inhabitant (EUR and PPS).',
       ['Income lens', 'City income'], '2022–2023', ['nama_10r_2hhinc']),
     s('eurostat_lfs', 'Labour Force Survey, regional', EL, 'https://ec.europa.eu/eurostat/web/lfs', LIC,
-      'Unemployment rate, educational attainment of adults 25–64 and population by country of birth, NUTS 2 regions.',
-      ['Unemployment', 'Degrees', 'Born abroad', 'City View education'], '2025', ['lfst_r_lfu3rt', 'edat_lfse_04', 'lfst_r_lfsd2pwc']),
+      'Unemployment rate, employment rate of people aged 20–64, educational attainment of adults 25–64 and population by country of birth, NUTS 2 regions.',
+      ['Unemployment', 'Employment rate', 'Degrees', 'Born abroad', 'City View education'], '2025', ['lfst_r_lfu3rt', 'lfst_r_lfe2emprt', 'edat_lfse_04', 'lfst_r_lfsd2pwc']),
+    s('eurostat_ifs', 'Integrated Farm Statistics: crops by NUTS 2 region', EL, 'https://ec.europa.eu/eurostat/web/agriculture', LIC,
+      'Hectares of grapes, olives, fruit, berry and nut plantations and citrus on farms, by NUTS 2 region (2023 survey; 2020 where 2023 is missing). '
+      'Each lens divides the area by the region’s land area. Not collected for the UK after Brexit, Türkiye or most of the Western Balkans.',
+      ['Vineyards', 'Olive groves', 'Orchards'], '2020–2023', ['ef_lus_allcrops']),
     s('eurostat_life', 'Life expectancy by NUTS 2 region', EL, 'https://ec.europa.eu/eurostat', LIC, 'Life expectancy at birth.', ['Life expectancy lens'], '2023–2024', ['demo_r_mlifexp']),
     s('eurostat_silc', 'Poverty or social exclusion (EU-SILC)', EL, 'https://ec.europa.eu/eurostat/web/income-and-living-conditions', LIC,
       'Share of people at risk of poverty or social exclusion (AROPE) by NUTS 2 region (some countries only NUTS 1).', ['Poverty lens'], '2024–2025', ['ilc_peps11n']),
@@ -67,6 +71,16 @@ SOURCES = [
      'description': 'Sea depth at zoom 7 (about 800 m in Europe), sampled every 4 km: the Copernicus DEM has no bathymetry. Land elevation comes from the Copernicus DEM.', 'used_for': ['Sea depth'], 'vintage': 'static', 'files': []},
     {'id': 'copernicus_ecde', 'title': 'Aggregated climate indicators for Europe (European Climate Data Explorer)', 'publisher': 'Copernicus Climate Change Service (C3S) / European Environment Agency', 'homepage': 'https://cds.climate.copernicus.eu/datasets/sis-ecde-aggregated-climate-indicators', 'license': 'CC BY 4.0',
      'description': 'Hot days (30 °C), tropical nights (20 °C), seasonal mean temperature and rain per NUTS 2 region: ERA5 reanalysis 1991–2020, and EURO-CORDEX projections for RCP4.5 and RCP8.5 as yearly quantiles across the models and 30-year changes. Contains modified Copernicus Climate Change Service information; neither the European Commission nor ECMWF is responsible for any use of it.', 'used_for': ['Hot days', 'Tropical nights', '2050 dial', 'Climate twins', 'Where to live (climate)'], 'vintage': 'v2.0 (ERA5 to 2025, projections to 2100)', 'files': []},
+    {'id': 'era5_land', 'title': 'ERA5-Land monthly averaged data from 1950 to present', 'publisher': 'Copernicus Climate Change Service (C3S) / ECMWF',
+     'homepage': 'https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land-monthly-means', 'license': 'CC BY 4.0',
+     'description': 'Monthly mean 2 m temperature and precipitation on a 0.1° (about 9 km) grid. The Temperature and Rainfall lenses average 1996–2025; '
+                    'Warming and Rainfall change compare it with 1961–1990. Each hex is the mean of samples every 2 km. Contains modified Copernicus Climate Change Service information.',
+     'used_for': ['Temperature', 'Warming', 'Rainfall', 'Rainfall change'], 'vintage': '1961–1990 and 1996–2025', 'files': []},
+    {'id': 'meta_chm', 'title': 'Global Canopy Height Map (Meta and World Resources Institute)', 'publisher': 'Meta / World Resources Institute',
+     'homepage': 'https://registry.opendata.aws/dataforgood-fb-forests/', 'license': 'CC BY 4.0',
+     'description': 'Tree canopy height from 1 m satellite imagery and GEDI lidar (Tolan et al. 2024, Remote Sensing of Environment), read from its downsampled '
+                    'version (average height per 1/4000° cell, about 25 m) on a 1 km lattice. Mostly 2018–2020 imagery.',
+     'used_for': ['Forest height'], 'vintage': '2024 release', 'files': []},
     {'id': 'natural_earth', 'title': 'Natural Earth 1:10m', 'publisher': 'Natural Earth', 'homepage': 'https://www.naturalearthdata.com', 'license': 'Public domain',
      'description': 'Rivers, lakes, populated places (city positions), roads and railroads.', 'used_for': ['Rivers', 'Lakes', 'Roads', 'Railroads', 'City positions'], 'vintage': '5.1.2', 'files': []},
     {'id': 'natural_earth_roads', 'title': 'Natural Earth roads and railroads', 'publisher': 'Natural Earth', 'homepage': 'https://www.naturalearthdata.com', 'license': 'Public domain',

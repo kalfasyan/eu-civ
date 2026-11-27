@@ -12,6 +12,7 @@ import { popSeries, rankCount, resourceValue, LAND } from "./model.js";
 import { citizensHtml, mountCitizens } from "./citizens.js";
 import { badgeHtml, cityDistricts, districtsHtml } from "./districts.js";
 import { historyHtml, populationSeries, yearSpark } from "./history.js";
+import { satelliteHtml, mountSatellite, SAT_ICON } from "./satellite.js";
 
 const TABS = [
   ["citizens", "Citizens", "pop"],
@@ -19,6 +20,7 @@ const TABS = [
   ["economy", "Economy", "y-gold"],
   ["workforce", "Workforce", "y-production"],
   ["resources", "Resources", "resources"],
+  ["satellite", "Satellite", "search"],
   ["compare", "Compare", "layers"],
 ];
 
@@ -321,6 +323,15 @@ function compare(m) {
   </section>`;
 }
 
+// --- satellite -----------------------------------------------------------------------------------------------------
+function satellite(m) {
+  return `
+  <section class="cv-sec" id="cv-satellite" data-sec="satellite" aria-labelledby="cv-h-satellite">
+    <h3 id="cv-h-satellite">${SAT_ICON()}From space</h3>
+    <div data-satellite>${satelliteHtml(m)}</div>
+  </section>`;
+}
+
 function footer(m) {
   const nat = m.nation;
   return `<div class="cv-foot">Sources: ${esc(nat.vintage)}${nat.gdp_vintage ? `; GDP: ${esc(nat.gdp_vintage)}` : ""}; Census population
@@ -364,7 +375,7 @@ export function goToSection(el, id) {
 export function render(el, m, h) {
   el.classList.add("cv-dock");
   el.style.setProperty("--sc", css(m.stateRGB));
-  el.innerHTML = header(m) + citizens(m) + districts(m) + economy(m) + workforce(m) + resources(m) + compare(m) + footer(m);
+  el.innerHTML = header(m) + citizens(m) + districts(m) + economy(m) + workforce(m) + resources(m) + satellite(m) + compare(m) + footer(m);
   el.scrollTop = 0;
 
   el.querySelector("[data-close]").onclick = () => h.onClose();
@@ -407,6 +418,8 @@ export function render(el, m, h) {
   };
   el.onscroll = spy;
   spy();
+
+  mountSatellite(el.querySelector("[data-satellite]"), m);
 
   // Citizens and districts arrive with their files (each loaded once, on demand).
   const czHost = el.querySelector("[data-citizens]");
