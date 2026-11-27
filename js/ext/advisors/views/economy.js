@@ -201,6 +201,82 @@ export function mount(ctx) {
   }
   setIndustry(industry);
 
+  // --- 2050 exposure (data/climate.json, loaded on demand) -------------------------------------------------------
+  const exBody = section(el, { title: "2050 exposure", note: "Who sits on the hazards. Heat is days above 30 °C and nights above 20 °C (Copernicus, per NUTS 2 region, ERA5 1991–2020 and the EURO-CORDEX models for 2050). Low land is people living at or below 5 m near the coast: exposure, not a flood forecast, since dykes and dunes are not modelled." });
+  exBody.insertAdjacentHTML("beforeend", `<p class="adv-note muted" data-wait>Loading climate data…</p>`);
+  app.loadData("climate").then((C) => {
+    exBody.querySelector("[data-wait]")?.remove();
+    if (!C) { exBody.insertAdjacentHTML("beforeend", `<p class="adv-empty">The climate data file (climate.json) is missing.</p>`); return; }
+    const raw = app.w.raw;
+    const idx = new Map(raw.counties.map((c, i) => [c.geoid, i]));
+    const regPop = new Map(data.levels.counties.rows.map((r) => [r.ref, r.v.population || 0]));
+    let path = "s85";
+    const Y = C.years.length - 1;
+    // a metro's climate: its member regions' values weighted by population; low land: people summed
+    const clim = new Map();
+    for (const r of rows) {
+      let w = 0, h0 = 0, h1 = { s45: 0, s85: 0 }, t1 = { s45: 0, s85: 0 }, low = 0;
+      for (const g of r.ref.counties || []) {
+        const i = idx.get(g);
+        if (i == null) continue;
+        low += C.coast[i]?.[2] || 0;
+        const u = C.unit_of[i];
+        if (u < 0) continue;
+        const p = regPop.get(i) || 0;
+        w += p; h0 += p * C.base.hot[u];
+        for (const k of ["s45", "s85"]) { h1[k] += p * C.path.hot[k].mid[u][Y]; t1[k] += p * C.path.trop[k].mid[u][Y]; }
+      }
+      clim.set(r.key, w ? { h0: h0 / w, h1: { s45: h1.s45 / w, s85: h1.s85 / w }, t1: { s45: t1.s45 / w, s85: t1.s85 / w }, low } : { low });
+    }
+    const cv = (r) => clim.get(r.key) || {};
+    const S = C.stats;
+    const tilesEl = document.createElement("div");
+    exBody.appendChild(tilesEl);
+    const drawTiles = () => {
+      tilesEl.innerHTML = tiles([
+        { label: "People with 30+ hot days", value: `${count3(S.pop_hot30_today)} → ${count3(S.pop_hot30_2050[path])}`, sub: "1991–2020 → 2050", color: "#f0b25a" },
+        { label: "People on low land", value: count3(S.pop_low_coast), sub: "at or below 5 m", color: "#5fa8d3" },
+        { label: "GDP on low land", value: money(S.gdp_low_coast), sub: "estimated from where people live" },
+        { label: "Regions that stay mild", value: String(S.mild_2050[path]), sub: "under 5 hot days in 2050" },
+      ]);
+    };
+    segmented(exBody, {
+      label: "Emissions path", value: path,
+      options: [{ value: "s45", label: "If emissions fall" }, { value: "s85", label: "If they don't" }],
+      onChange: (v) => { path = v; drawTiles(); exTable.setRows(rows.filter(inPlay)); refTable.setRows(refuges()); },
+    });
+    drawTiles();
+    const d1 = (v) => (fin(v) ? (v < 9.95 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) : "–");
+    const inPlay = (r) => (r.v.population || 0) >= METRO_MIN;
+    const exTable = createTable(exBody, {
+      caption: "Metros by 2050 exposure", rank: true, maxHeight: 280, rows: rows.filter(inPlay), search: "Search metros",
+      columns: [
+        { key: "name", label: "Metro", align: "l", value: (r) => r.name, html: (r) => `${esc(r.name)} <span class="sub">${esc(r.sub)}</span>` },
+        { key: "hot", label: "Hot days 2050", value: (r) => cv(r).h1?.[path], text: (r) => `${d1(cv(r).h0)} → ${d1(cv(r).h1?.[path])}`, bar: { max: 90, color: "rgba(240,178,90,.35)" } },
+        { key: "trop", label: "Warm nights", value: (r) => cv(r).t1?.[path], text: (r) => d1(cv(r).t1?.[path]), hideBelow: 420 },
+        { key: "low", label: "On low land", value: (r) => cv(r).low, text: (r) => (cv(r).low ? count3(cv(r).low) : "–"), bar: { max: 1.5e6, color: "rgba(95,168,211,.35)" } },
+      ],
+      sort: { key: "hot", dir: "desc" },
+      onHover: (r) => link.hover(r ? rowsHighlight(metros, [r]) : null),
+      onClick: (r) => app.selectCity(r.ref),
+    });
+    const refBody = section(el, { title: "Climate refuges", note: `Metros of ${count3(METRO_MIN)}+ people that stay mild in 2050 (under 5 hot days and 3 warm nights a year), ranked by GDP per person. The Settler advisor weighs the same numbers when you stay 10 or 25 years.` });
+    el.insertBefore(refBody.closest("section") || refBody, exBody.closest("section").nextSibling);
+    const refuges = () => rows.filter((r) => inPlay(r) && fin(cv(r).h1?.[path]) && cv(r).h1[path] < 5 && cv(r).t1[path] < 3);
+    const refTable = createTable(refBody, {
+      caption: "Climate refuges", rank: true, maxHeight: 240, rows: refuges(),
+      columns: [
+        { key: "name", label: "Metro", align: "l", value: (r) => r.name, html: (r) => `${esc(r.name)} <span class="sub">${esc(r.sub)}</span>` },
+        { key: "hot", label: "Hot days 2050", value: (r) => cv(r).h1?.[path], text: (r) => d1(cv(r).h1?.[path]) },
+        { key: "gdp_pc", label: "Per person", value: (r) => r.v.gdp_pc, text: (r) => money(r.v.gdp_pc) },
+        { key: "growth", label: "Growth", value: (r) => r.v.growth, text: (r) => signedPct(r.v.growth), hideBelow: 420 },
+      ],
+      sort: { key: "gdp_pc", dir: "desc" },
+      onHover: (r) => link.hover(r ? rowsHighlight(metros, [r]) : null),
+      onClick: (r) => app.selectCity(r.ref),
+    });
+  }).catch((err) => { console.warn("2050 exposure:", err); exBody.querySelector("[data-wait]")?.remove(); });
+
   el.insertAdjacentHTML("beforeend", sourcesHtml(data, ["bea_gdp", "acs_1yr", "pep_population", "cbsa_delineation"], [
     "GDP is counted where the work is done (BEA); jobs and specialisation are counted where workers live (ACS), so a commuter suburb's workers count in its own metro.",
     `GDP is ${esc(nation.gdp_vintage || "BEA")} while population is ${esc(nation.vintage || "ACS")}: per-person figures divide numbers a year apart.`,

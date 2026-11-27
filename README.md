@@ -55,6 +55,14 @@ python3 build_people.py
 python3 build_sources.py
 python3 build_history.py   # yearly series for the time dial (data/history.json) and the GDP vs EU average lens
 python3 build_advisor.py   # pay, rent, jobs and languages per region for the Where to live advisor (data/advisor.json)
+python3 build_climate.py   # the 2050 dial, climate twins and low-lying land (data/climate.json) and the Climate lenses
 ```
+
+`build_climate.py` downloads the European Climate Data Explorer's NUTS-aggregated indicators from the Copernicus Climate
+Data Store. It needs a free CDS account: put your personal access token in `CDSAPI_KEY` and accept the dataset's CC-BY
+licence on [its download page](https://cds.climate.copernicus.eu/datasets/sis-ecde-aggregated-climate-indicators?tab=download).
+The key is only used at build time and never reaches `data/` or the site. Downloads are cached in `raw/cds/`; the script
+also needs `raw/worldcover/` and fetches zoom 9 terrain tiles near the coast into `raw/terrarium9/`
+(`pip install xarray netCDF4` for the netCDF files).
 
 Every source, with links and licences, is listed in the in-app Almanac (`data/sources.json`).

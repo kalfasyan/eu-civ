@@ -47,6 +47,7 @@ export function formatLensTick(lens, t, k = -1) {
 export function lensValueAt(lens, t) {
   const [d0, d1] = lens.domain;
   if (lens.scale === "log") return Math.exp(Math.log(d0) + t * (Math.log(d1) - Math.log(d0)));
+  if (lens.scale === "sqrt") { const s = Math.sqrt(Math.max(d0, 0)) + t * (Math.sqrt(d1) - Math.sqrt(Math.max(d0, 0))); return s * s; }
   return d0 + t * (d1 - d0);
 }
 
