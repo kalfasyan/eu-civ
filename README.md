@@ -21,7 +21,10 @@ the data pipeline in `pipeline/` is new.
 
 ## What's on the map
 
-- **Lenses** recolour the map by one measure: people, prosperity, knowledge, life, land and climate.
+- **Lenses** recolour the map by one measure: people, prosperity, knowledge, life, land and climate. Among them: children,
+  growth since 2000 and the employment rate (Eurostat), vineyards, olive groves and orchards (Eurostat farm survey),
+  forest height (Meta and WRI Global Canopy Height Map), and temperature, warming, rainfall and rainfall change since
+  1961–1990 (ERA5-Land).
 - **Time dial**: lenses with history (population, GDP vs EU average, unemployment, farm and factory jobs) replay year by
   year from 2000 to the latest Eurostat year.
 - **2050 dial** on the Climate lenses (Hot days, Tropical nights). Push them from today to 2050 on two emissions paths
@@ -77,6 +80,7 @@ python3 build_sources.py
 python3 build_history.py   # yearly series for the time dial (data/history.json) and the GDP vs EU average lens
 python3 build_advisor.py   # pay, rent, jobs and languages per region for the Where to live advisor (data/advisor.json)
 python3 build_climate.py   # the 2050 dial, climate twins and low-lying land (data/climate.json) and the Climate lenses
+python3 build_more_lenses.py  # children, growth since 2000, employment rate, temperature, warming, rainfall, crops, forest height
 ```
 
 `build_climate.py` downloads the European Climate Data Explorer's NUTS-aggregated indicators from the Copernicus Climate
@@ -85,6 +89,11 @@ licence on [its download page](https://cds.climate.copernicus.eu/datasets/sis-ec
 The key is only used at build time and never reaches `data/` or the site. Downloads are cached in `raw/cds/`; the script
 also needs `raw/worldcover/` and fetches zoom 9 terrain tiles near the coast into `raw/terrarium9/`
 (`pip install xarray netCDF4` for the netCDF files).
+
+`build_more_lenses.py` also uses `CDSAPI_KEY`, for ERA5-Land monthly means (accept that dataset's licence on
+[its download page](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land-monthly-means?tab=download) too;
+about 450 MB, cached in `raw/cds/`). It reads the Meta and WRI canopy height tiles straight from their public AWS bucket,
+one row of pixels per kilometre, and caches those rows in `raw/chm/`.
 
 Every source, with links and licences, is listed in the in-app Almanac (`data/sources.json`) and in
 [docs/FAQ.md](docs/FAQ.md). The Eurostat API serves the latest release on the day you build, and Eurostat revises its
