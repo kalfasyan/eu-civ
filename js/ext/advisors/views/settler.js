@@ -212,7 +212,7 @@ export async function mount(ctx) {
     "\"English is enough at work\" keeps every region in play; where you don't speak the local language the card says so, with the share of adults who speak their best foreign language well (Adult Education Survey, edat_aes_l31), usually English.",
     "Travel time is a straight line with a detour factor at about 90 km/h, not a timetable.",
     "Mild summers counts hot days (30 °C) and warm nights (20 °C) per NUTS 2 region. A 2-year stay uses today's climate; 10 and 25 years use the models' path to 2035 and 2050, halfway between the two emissions paths (Copernicus ECDE).",
-    "The UK and Türkiye have no comparable pay data, and a few Balkan countries no occupation census, so they are left out of the money and jobs parts.",
+    "The UK, Türkiye, Liechtenstein and Montenegro have no comparable pay data, so they are left out of the money part. The UK, Türkiye, Serbia, Albania, North Macedonia and Montenegro have no occupation census, so they are left out of the jobs part.",
   ]));
 
   // --- the engine -------------------------------------------------------------------------------------------------

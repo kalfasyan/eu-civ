@@ -20,6 +20,12 @@ const ROWS = [
     [["Legend"], "Hover or drag the scale to show only that range"],
     [["R"], "Show or hide resources"],
   ]],
+  ["Dials & advisors", [
+    [["▶ Time dial"], "History lenses: replay 2000 to the latest year"],
+    [["2050 dial"], "Climate lenses: push to 2050 on two emissions paths"],
+    [["Hover region"], "On the 2050 dial: show its climate twin"],
+    [["Advisors"], "Where to live, the Explorer and more"],
+  ]],
   ["Panels", [
     [["?"], "This help"],
     [["Esc"], "Close help, search, Almanac, then the panel"],
@@ -38,9 +44,13 @@ export function initHelp() {
       <section><h3>${title}</h3>${rows.map(([keys, what]) => `
         <div class="help-row"><span class="keys">${keys.map((k) => `<kbd>${k}</kbd>`).join("")}</span><span>${what}</span></div>`).join("")}
       </section>`).join("")}</div>
-    <p class="help-foot">Every number traces back to public data: open the <b>Almanac</b> for sources.
+    <p class="help-foot">Every number traces back to public data: open the <b>Almanac</b> for sources and methods.
+      Climate values are per NUTS 2 region (Copernicus ECDE). Low-lying land is exposure, not a flood forecast.
+      Questions about sources, resolution, uncertainty or citing? See the
+      <a href="https://github.com/kalfasyan/eu-civ/blob/main/docs/FAQ.md" target="_blank" rel="noopener">FAQ</a>.
       The link in the address bar always reopens this exact view.
-      Source code: <a href="usaciv-source.zip" download>usaciv-source.zip</a> (MIT; run it with uv, see its README).</p>`;
+      Source code: <a href="https://github.com/kalfasyan/eu-civ" target="_blank" rel="noopener">github.com/kalfasyan/eu-civ</a>
+      (engine from usaciv, MIT).</p>`;
 
   const close = () => {
     if (modal.hidden) return;
