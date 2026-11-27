@@ -62,7 +62,8 @@ Inputs to place in `raw/` before running:
 
 - `nuts/` NUTS 2016/2021/2024 region and country files from [eurostat/Nuts2json](https://github.com/eurostat/Nuts2json) (EPSG:3035, 1:10M)
 - `ne/` Natural Earth 1:10m rivers, lakes, roads, railroads, populated places (GeoJSON)
-- `terrarium/` Terrarium elevation tiles at zoom 7 (AWS Terrain Tiles)
+- `terrarium/` Terrarium elevation tiles at zoom 7 (AWS Terrain Tiles), for sea depth. Land elevation comes from the
+  Copernicus DEM GLO-90, which `pipeline/copdem.py` fetches from AWS Open Data into `raw/copdem/` (no account)
 - `worldcover/` ESA WorldCover 2021 overviews (`pipeline/fetch_worldcover.py`)
 - `metro/Metro-regions-NUTS-2016.xlsx` from Eurostat's metropolitan regions page
 - `uk/` ONS regional GDP and GVA-by-industry workbooks and a BRES extract from Nomis (fetched automatically by `pipeline/uk.py`)
@@ -91,7 +92,7 @@ python3 build_more_lenses.py  # children, growth since 2000, employment rate, te
 Data Store. It needs a free CDS account: put your personal access token in `CDSAPI_KEY` and accept the dataset's CC-BY
 licence on [its download page](https://cds.climate.copernicus.eu/datasets/sis-ecde-aggregated-climate-indicators?tab=download).
 The key is only used at build time and never reaches `data/` or the site. Downloads are cached in `raw/cds/`; the script
-also needs `raw/worldcover/` and fetches zoom 9 terrain tiles near the coast into `raw/terrarium9/`
+also needs `raw/worldcover/` and reads the Copernicus DEM near the coast (cached in `raw/copdem/`)
 (`pip install xarray netCDF4` for the netCDF files).
 
 `build_more_lenses.py` also uses `CDSAPI_KEY`, for ERA5-Land monthly means (accept that dataset's licence on

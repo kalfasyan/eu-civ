@@ -123,7 +123,7 @@ lens('farmland', 'land', 'Farmland', 'l-farmland', '\U0001F69C', 'share of land'
 lens('developed', 'land', 'Built-up', 'l-developed', '\U0001F3D9️', 'share of land', 'pct', land(pct['developed']), 'grey', source='worldcover',
      desc='Built-up share of the hex’s land samples (ESA WorldCover 2021, 10 m buildings and roads read at ~300 m).', dom=[0, 0.3])
 lens('elevation', 'land', 'Elevation', 'l-forest', '⛰️', 'metres above sea level', 'int', [None if world['owner'][i] < 0 else world['elev'][i] for i in range(S)], 'elev',
-     source='terrarium', desc='Mean elevation of the hex’s land samples (AWS Terrain Tiles: SRTM, EU-DEM and others).', dom=[0, 2200], digits=0)
+     source='copdem', desc='Mean elevation of the hex’s land samples (Copernicus DEM GLO-90).', dom=[0, 2200], digits=0)
 
 save_json('lenses', {'vintage': 'Eurostat regional statistics, latest year (mostly 2023–2025)',
                      'groups': [{'id': 'people', 'name': 'People'}, {'id': 'prosperity', 'name': 'Prosperity'},
