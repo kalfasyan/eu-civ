@@ -100,6 +100,7 @@ const newCanvas = (wd, ht) => {
 
 const WAVE_TILE = 128, MOTTLE_TILE = 211;
 let patterns = null; // {ctx, dpr, waves, mottle}
+let waterTiles = null; // {dpr, waves, mottle}: the tile canvases behind the patterns
 
 function makeWaveTile(dpr) {
   const size = WAVE_TILE;
@@ -172,10 +173,13 @@ function makeMottleTile(dpr) {
 export function drawOceanTexture(ctx, vp, opts = {}) {
   const { s, dpr } = vp;
   if (!patterns || patterns.dpr !== dpr || patterns.ctx !== ctx) {
+    // The tiles are painted once per pixel ratio; only the cheap CanvasPatterns are per context (the map's pan
+    // cache alternates between canvases, see main.js shiftStatic).
+    if (!waterTiles || waterTiles.dpr !== dpr) waterTiles = { dpr, waves: makeWaveTile(dpr), mottle: makeMottleTile(dpr) };
     patterns = {
       ctx, dpr,
-      waves: ctx.createPattern(makeWaveTile(dpr), "repeat"),
-      mottle: ctx.createPattern(makeMottleTile(dpr), "repeat"),
+      waves: ctx.createPattern(waterTiles.waves, "repeat"),
+      mottle: ctx.createPattern(waterTiles.mottle, "repeat"),
     };
   }
   // One pattern pixel = one device pixel; the pattern origin sits at world (0, 0).

@@ -678,7 +678,7 @@ export function drawBanners(ctx, cam, w, state, yields, nation = state.nation) {
 
     hits.push({ x, y: y - tab, w: width, h: height + tab, city, specialty: m.spec?.key ?? null });
   }
-  drawPlaces(ctx, cam, state, Rpx, blocked, placed, focus);
+  drawPlaces(ctx, cam, state, Rpx, blocked, placed, focus, scale, t);
   return hits;
 }
 
@@ -694,7 +694,54 @@ function placeFloor(Rpx) {
   return Rpx < 16 ? Infinity : Rpx < 24 ? 1e5 : Rpx < 34 ? 5e4 : Rpx < 55 ? 2.5e4 : 0;
 }
 
-function drawPlaces(ctx, cam, state, Rpx, blocked, placed, focus) {
+// Each name (dot, outline and text) is painted once into a small sprite per pixel ratio and then blitted: stroking
+// and filling ~100 italic labels every frame was most of a zoomed-in frame. Least recently used sprites go first.
+const PLACE_SPRITES_MAX = 800;
+const placeSprites = new Map(); // `${name}|${scale}` → {canvas, x0, y0, cssW, cssH}
+const PL_LEFT = 5, PL_RIGHT = 9, PL_HALF_H = 9; // css px around the dot centre that the sprite covers
+
+function placeSprite(name, tw, scale) {
+  const key = `${name}|${scale}`;
+  let sp = placeSprites.get(key);
+  if (sp) {
+    placeSprites.delete(key); // re-insert: most recently used last
+    placeSprites.set(key, sp);
+    return sp;
+  }
+  if (typeof document === "undefined") return null;
+  const cssW = PL_LEFT + 6 + tw + PL_RIGHT, cssH = 2 * PL_HALF_H;
+  const cv = document.createElement("canvas");
+  cv.width = Math.ceil(cssW * scale);
+  cv.height = Math.ceil(cssH * scale);
+  const g = cv.getContext("2d");
+  if (!g) return null;
+  g.scale(scale, scale);
+  g.translate(PL_LEFT, PL_HALF_H);
+  paintPlace(g, name, 0, 0);
+  sp = { canvas: cv, x0: -PL_LEFT, y0: -PL_HALF_H, cssW: cv.width / scale, cssH: cv.height / scale };
+  placeSprites.set(key, sp);
+  if (placeSprites.size > PLACE_SPRITES_MAX) placeSprites.delete(placeSprites.keys().next().value);
+  return sp;
+}
+
+function paintPlace(g, name, sx, sy) {
+  g.font = PLACE_FONT;
+  g.textBaseline = "middle";
+  g.lineJoin = "round";
+  g.beginPath();
+  g.arc(sx, sy, 2.4, 0, Math.PI * 2);
+  g.fillStyle = "rgba(205,205,200,0.95)";
+  g.strokeStyle = INK;
+  g.lineWidth = 1.2;
+  g.fill();
+  g.stroke();
+  g.lineWidth = 3;
+  g.strokeText(name, sx + 6, sy);
+  g.fillStyle = "rgba(214,214,208,0.95)";
+  g.fillText(name, sx + 6, sy);
+}
+
+function drawPlaces(ctx, cam, state, Rpx, blocked, placed, focus, scale = 1, t = null) {
   const places = state.places;
   if (!places || !places.length) return;
   const floor = placeFloor(Rpx);
@@ -720,17 +767,18 @@ function drawPlaces(ctx, cam, state, Rpx, blocked, placed, focus) {
     if (blocked(rect)) continue;
     placed.push(rect);
     shown++;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 2.4, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(205,205,200,0.95)";
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = 1.2;
-    ctx.fill();
-    ctx.stroke();
-    ctx.lineWidth = 3;
-    ctx.strokeText(p[0], sx + 6, sy);
-    ctx.fillStyle = "rgba(214,214,208,0.95)";
-    ctx.fillText(p[0], sx + 6, sy);
+    const sp = placeSprite(p[0], tw, scale);
+    if (!sp) {
+      paintPlace(ctx, p[0], sx, sy);
+      continue;
+    }
+    // snapped to device pixels (like the banners), so the cached text stays crisp
+    let dx = sx + sp.x0, dy = sy + sp.y0;
+    if (t && t.b === 0 && t.c === 0 && t.a > 0 && t.d > 0) {
+      dx = (Math.round(t.a * dx + t.e) - t.e) / t.a;
+      dy = (Math.round(t.d * dy + t.f) - t.f) / t.d;
+    }
+    ctx.drawImage(sp.canvas, dx, dy, sp.cssW, sp.cssH);
   }
   ctx.restore();
 }

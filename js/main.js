@@ -2,6 +2,7 @@ import { Camera } from "./camera.js";
 import { prepareWorld, applyLens, stateIndex } from "./world.js";
 import * as mapRender from "./render/map.js";
 import { drawBanners } from "./render/banners.js";
+import { createEdgeDecor } from "./render/edgeDecor.js";
 import { renderTopbar } from "./ui/topbar.js";
 import { showCellTooltip, showCityTooltip, showHtmlTooltip, hideTooltip } from "./ui/tooltip.js";
 import { initLensDock, formatLensValue, lensValueAt } from "./ui/lenses.js";
@@ -46,6 +47,7 @@ const snapshotModule = import("./render/snapshot.js").catch(() => null);
 const PANEL_W = 394; // city panel width + margins (css #city-panel)
 const TOPBAR_H = 40;
 const CACHE_MARGIN = 160; // css px of map rendered beyond each edge of the viewport, so short pans are a blit
+const STRIP_PAD = 64; // css px of map rendered around each strip a pan uncovers (see shiftStatic)
 const PAN_LEAD = 0.6; // a pan that runs off the cache re-renders it shifted this share of the margin ahead
 const DOUBLE_MS = 260;
 const SELECT_ANIM_MS = 33; // ~30 fps while a state's border highlight animates
@@ -90,6 +92,9 @@ async function main() {
   let animTimer = 0;
   let lastCamSig = "";
   let lastUrlCamSig = "";
+  // Clouds and sea creatures around the edges of the map, on their own canvas over it (render/edgeDecor.js).
+  const decorCanvas = document.getElementById("map-decor");
+  const decor = decorCanvas ? createEdgeDecor(decorCanvas, w, cam) : null;
   const perf = { static: [], frame: [], warm: [] }; // ms per static render / frame / idle warm-up strip
 
   const minimap = new Minimap(document.getElementById("minimap"), w, cam, (x, y) => {
@@ -104,8 +109,13 @@ async function main() {
   // --- static layer cache ----------------------------------------------------------------------------------------
   // Tiles, glyphs, rivers, borders, labels and resources are rendered into an offscreen canvas covering the view
   // plus a margin. Panning blits it; zooming blits it scaled and re-renders once the camera settles.
-  const cache = { cv: document.createElement("canvas"), key: null, vp: null, hits: { resources: [] } };
-  const cctx = cache.cv.getContext("2d");
+  // A pan that runs off the cache shifts the old pixels into a second canvas and renders only the strips it uncovers
+  // (see shiftStatic), so a steady pan costs a fifth of a full render per step instead of a whole one.
+  const cache = {
+    cv: document.createElement("canvas"), back: document.createElement("canvas"), strip: document.createElement("canvas"),
+    key: null, vp: null, hits: { resources: [] },
+  };
+  let cctx = cache.cv.getContext("2d");
   // Each registered layer's id, visibility and own sig() are part of the key, so toggling or restyling a layer
   // re-renders the cache (and nothing else does).
   const layersSig = () => staticLayers.map((l) => {
@@ -135,19 +145,84 @@ async function main() {
       cssW: cam.w + 2 * CACHE_MARGIN, cssH: cam.h + 2 * CACHE_MARGIN,
     };
     const W = Math.ceil(vp.cssW * dpr), H = Math.ceil(vp.cssH * dpr);
+    if (lead && shiftStatic(vp, W, H)) {
+      record(perf.static, performance.now() - t0);
+      return;
+    }
     if (cache.cv.width !== W || cache.cv.height !== H) {
       cache.cv.width = W;
       cache.cv.height = H;
     }
     const hitsOut = {};
-    drawStatic(cctx, vp, w, {
-      lens: state.lens, showResources: state.showResources, resourceFilter: state.resourceFilter, selectedCity: state.selectedCity, hits: hitsOut,
-      layers: staticLayers, app,
-    });
+    drawStatic(cctx, vp, w, staticOpts(hitsOut));
     cache.hits = { resources: hitsOut.resources || [] };
     cache.vp = vp;
     cache.key = cacheKey();
     record(perf.static, performance.now() - t0);
+  }
+  const staticOpts = (hits) => ({
+    lens: state.lens, showResources: state.showResources, resourceFilter: state.resourceFilter, selectedCity: state.selectedCity, hits,
+    layers: staticLayers, app,
+  });
+
+  // Pan step: same layers, zoom and size as the cache, which moves by a whole number of device pixels. The pixels
+  // both caches share are copied; each uncovered strip is rendered on its own, with STRIP_PAD css px of map around
+  // it so labels, icons and strokes that cross the seam are drawn the same way on both sides. Returns false when a
+  // full render is needed instead.
+  function shiftStatic(want, W, H) {
+    const old = cache.vp;
+    if (!old || cache.key !== cacheKey() || old.s !== want.s || old.dpr !== want.dpr || cache.cv.width !== W || cache.cv.height !== H) return false;
+    const k = old.s * old.dpr; // device px per km
+    const dx = Math.round((want.x0 - old.x0) * k), dy = Math.round((want.y0 - old.y0) * k);
+    if (!dx && !dy) return false;
+    if (Math.abs(dx) * 2 > W || Math.abs(dy) * 2 > H) return false; // mostly new: a full render is as cheap
+    const x0 = old.x0 + dx / k, y0 = old.y0 + dy / k;
+    const vp = { ...want, x0, y0, x1: x0 + W / k, y1: y0 + H / k };
+    const back = cache.back;
+    if (back.width !== W || back.height !== H) {
+      back.width = W;
+      back.height = H;
+    }
+    const bctx = back.getContext("2d");
+    bctx.setTransform(1, 0, 0, 1, 0, 0);
+    bctx.clearRect(0, 0, W, H);
+    bctx.drawImage(cache.cv, -dx, -dy);
+    // Uncovered strips in device px [x, y, w, h]: a full-height column, then the rest of the row band.
+    const strips = [];
+    if (dx > 0) strips.push([W - dx, 0, dx, H]);
+    else if (dx < 0) strips.push([0, 0, -dx, H]);
+    const bx = dx < 0 ? -dx : 0, bw = W - Math.abs(dx);
+    if (dy > 0) strips.push([bx, H - dy, bw, dy]);
+    else if (dy < 0) strips.push([bx, 0, bw, -dy]);
+    const pad = Math.round(STRIP_PAD * dpr);
+    const inStrip = (h, r) => {
+      const px = (h.x - x0) * k, py = (h.y - y0) * k;
+      return px >= r[0] && px < r[0] + r[2] && py >= r[1] && py < r[1] + r[3];
+    };
+    const onCanvas = (h) => inStrip(h, [0, 0, W, H]);
+    const hits = cache.hits.resources.filter((h) => onCanvas(h) && !strips.some((r) => inStrip(h, r)));
+    const sc = cache.strip;
+    for (const r of strips) {
+      const sw = r[2] + 2 * pad, sh = r[3] + 2 * pad;
+      if (sc.width !== sw || sc.height !== sh) {
+        sc.width = sw;
+        sc.height = sh;
+      }
+      const sctx = sc.getContext("2d");
+      const sx0 = x0 + (r[0] - pad) / k, sy0 = y0 + (r[1] - pad) / k;
+      const svp = { x0: sx0, y0: sy0, x1: sx0 + sc.width / k, y1: sy0 + sc.height / k, s: vp.s, dpr, cssW: sc.width / dpr, cssH: sc.height / dpr };
+      const out = {};
+      drawStatic(sctx, svp, w, staticOpts(out));
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
+      bctx.drawImage(sc, pad, pad, r[2], r[3], r[0], r[1], r[2], r[3]);
+      for (const h of out.resources || []) if (inStrip(h, r)) hits.push(h);
+    }
+    cache.back = cache.cv;
+    cache.cv = back;
+    cctx = bctx;
+    cache.hits = { resources: hits };
+    cache.vp = vp;
+    return true;
   }
 
   // --- sprite warm-up ----------------------------------------------------------------------------------------
@@ -248,6 +323,7 @@ async function main() {
     hits = drawBanners(ctx, cam, w, state, nation.yields, nation);
     if (overlays.length) drawOverlays(ctx, cam, overlays, app, { dpr, zMin: 100 });
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    decor?.render(hits);
     minimap.draw();
     record(perf.frame, performance.now() - t0);
   }
@@ -353,6 +429,7 @@ async function main() {
     const cw = Math.max(1, innerWidth), ch = Math.max(1, innerHeight);
     canvas.width = Math.round(cw * dpr);
     canvas.height = Math.round(ch * dpr);
+    decor?.resize(cw, ch, dpr);
     cam.resize(cw, ch);
     // Keep refitting until the user has moved the map (the first layout may be tiny or hidden).
     if (!userMoved || !(cam.scale > 0)) home();
