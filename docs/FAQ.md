@@ -83,7 +83,8 @@ Every source is listed in `data/sources.json` and in the Almanac's *Sources* pag
 | Use | Dataset | Version used | Licence |
 |---|---|---|---|
 | Climate today and in 2050 | Copernicus C3S [Climate and energy indicators for Europe: aggregated climate indicators (European Climate Data Explorer)](https://cds.climate.copernicus.eu/datasets/sis-ecde-aggregated-climate-indicators), `sis-ecde-aggregated-climate-indicators` | `version: v2_0`, NUTS 2 regional layer | CC BY 4.0 |
-| Elevation (terrain, low-lying land) | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Terrarium encoding: SRTM, EU-DEM, GMTED, ETOPO1 and others) | zoom 7 for terrain, zoom 9 for low-lying land | Open, attribution per source |
+| Elevation on land (terrain, low-lying land) | [Copernicus DEM GLO-90](https://registry.opendata.aws/copernicus-dem/) (AWS Open Data, `pipeline/copdem.py`) | 2021 release; 1/4 overview (~360 m) for terrain, full 90 m for low-lying land | Copernicus DEM licence (free for any use, with attribution) |
+| Sea depth | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Terrarium encoding) | zoom 7 | Open, attribution per source |
 | Land cover | [ESA WorldCover](https://esa-worldcover.org) 10 m | 2021, v200 (downsampled overviews, `pipeline/fetch_worldcover.py`) | CC BY 4.0 |
 | Population | Eurostat `demo_r_pjanaggr3`, `demo_r_pjangrp3`, `demo_r_pjanind3` | 1 January 2025 (series from 2000) | CC BY 4.0 |
 | GDP | Eurostat `nama_10r_3gdp` | 2023 to 2024 | CC BY 4.0 |
@@ -115,7 +116,7 @@ display unit. It is never finer than the data behind it.
 | Layer | Native unit | Time |
 |---|---|---|
 | Hot days, tropical nights, seasonal temperature and rain | NUTS 2 region (340 units in the ECDE file) | 1991–2020 average; yearly path 2025–2050 |
-| Low-lying land | samples every 500 m on zoom 9 elevation tiles (pixels of roughly 200 to 300 m in Europe) | static |
+| Low-lying land | samples every 500 m on the Copernicus DEM GLO-90 (90 m pixels) | static |
 | Terrain and land cover | samples every 4 km inside each hex | elevation static; WorldCover 2021 |
 | Most socio-economic lenses | NUTS 3 region | latest year Eurostat publishes, mostly 2023 to 2025 |
 | Unemployment, household income, life expectancy, R&D, some others | NUTS 2 region | as above |
@@ -233,7 +234,7 @@ days.
 **What does the Low-lying land lens show?**
 The share of each hex's land at or below 5 m above sea level, for hexes near the sea (within three hexes, about 100 km,
 of a sea hex, with a mean elevation under 120 m). Within those hexes, land is sampled every 500 m. Elevation comes from
-AWS Terrain Tiles at zoom 9. Open water and sea are removed using ESA WorldCover 2021.
+the Copernicus DEM GLO-90. Open water and sea are removed using ESA WorldCover 2021.
 
 **How are the people on low-lying land estimated?**
 For each NUTS 3 region: population × (built-up land at or below 5 m ÷ all built-up land), using WorldCover's built-up
@@ -247,9 +248,9 @@ modelled. Much of the Netherlands and other polders shows as low-lying, and is p
 would be wrong.
 
 **How accurate is the elevation?**
-Rough for a 5 m threshold. The tiles mix several sources (SRTM, EU-DEM and coarser sets in places). Their vertical
-error is several metres, comparable to the threshold itself. They are surface models, so buildings and trees can raise
-cities and forests above their ground level. They are also not tied to local tide datums. Treat the lens as a regional
+Rough for a 5 m threshold. The Copernicus DEM GLO-90 is one consistent source (TanDEM-X radar, 2011–2015), with a
+stated absolute vertical accuracy under 4 m (90% of points), still close to the threshold itself. It is a surface model, so buildings and trees can raise
+cities and forests above their ground level, and heights are above the EGM2008 geoid, not local tide datums. Treat the lens as a regional
 pattern, not a parcel-level answer. For serious work, use a coastal DEM with vertical accuracy of a metre or better, and
 local defence data.
 

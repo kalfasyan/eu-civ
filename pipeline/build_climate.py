@@ -250,13 +250,17 @@ def worldcover(lon, lat):
 
 
 
-# Terrarium z9 elevation
+# Elevation: Copernicus DEM GLO-90 at full resolution (about 90 m; pipeline/copdem.py), with Terrarium z9 only where
+# a sample has no DEM tile (open sea, which WorldCover removes below anyway).
+import copdem
+elev = copdem.sample(LON, LAT, level=0)
+need = ~np.isfinite(elev)
 Z = 9
 n = 2 ** Z
 fx = (LON + 180) / 360 * n
 fy = (1 - np.log(np.tan(np.radians(LAT)) + 1 / np.cos(np.radians(LAT))) / math.pi) / 2 * n
 tx, ty = fx.astype(int), fy.astype(int)
-tiles = sorted(set(zip(tx.tolist(), ty.tolist())))
+tiles = sorted(set(zip(tx[need].tolist(), ty[need].tolist())))
 TD = f'{RAW}/terrarium{Z}'
 os.makedirs(TD, exist_ok=True)
 
@@ -271,13 +275,12 @@ def fetch(t):
 
 with ThreadPoolExecutor(16) as ex:
     list(ex.map(fetch, tiles))
-print('tiles', len(tiles))
-elev = np.full(len(PX), np.nan, np.float32)
+print('terrarium fallback tiles', len(tiles))
 key = tx * 100000 + ty
 for t in tiles:
     a = np.asarray(Image.open(f'{TD}/{Z}_{t[0]}_{t[1]}.png').convert('RGB')).astype(np.float32)
     e = a[..., 0] * 256 + a[..., 1] + a[..., 2] / 256 - 32768
-    m = key == t[0] * 100000 + t[1]
+    m = need & (key == t[0] * 100000 + t[1])
     px = np.clip(((fx[m] - t[0]) * 256).astype(int), 0, 255)
     py = np.clip(((fy[m] - t[1]) * 256).astype(int), 0, 255)
     elev[m] = e[py, px]
@@ -402,9 +405,9 @@ new = [
      'note': '1991–2020 average. Open the 2050 dial to see where it is heading.'},
     {'id': 'low_coast', 'group': 'climate', 'name': 'Low-lying land', 'icon': 'l-flood', 'emoji': '\U0001F30A',
      'unit': 'share of the hex at or below 5 m', 'format': 'pct', 'scale': 'sqrt', 'domain': [0, 0.6],
-     'ramp': ['#2a2c2e', '#33454f', '#2f6a86', '#3f95c2', '#86c7ea', '#e6f6ff'], 'higher_is': 'bad', 'source': 'terrarium',
+     'ramp': ['#2a2c2e', '#33454f', '#2f6a86', '#3f95c2', '#86c7ea', '#e6f6ff'], 'higher_is': 'bad', 'source': 'copdem',
      'values': hex_low,
-     'description': out['notes']['coast'] + ' Elevation from AWS Terrain Tiles (SRTM, EU-DEM) at about 300 m, water removed with ESA WorldCover 2021.',
+     'description': out['notes']['coast'] + ' Elevation from the Copernicus DEM GLO-90 (about 90 m), water removed with ESA WorldCover 2021.',
      'note': f"About {stats['pop_low_coast'] / 1e6:.0f} million people live at or below 5 m."},
 ]
 ids = {l['id'] for l in new}

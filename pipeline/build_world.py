@@ -5,6 +5,7 @@ import shapely
 from shapely.geometry import shape
 from PIL import Image
 from common import *
+import copdem
 
 RADIUS = 20.0
 MARGIN = 150.0
@@ -73,7 +74,7 @@ print('in regions', (p_reg >= 0).sum(), 'land', p_land.sum())
 LON, LAT = TO4326.transform(X3, Y3)
 LON = np.asarray(LON); LAT = np.asarray(LAT)
 
-# --- elevation (Terrarium tiles, z7) --------------------------------------------------------------------------------
+# --- elevation: Terrarium tiles (z7) everywhere, then Copernicus DEM on land ----------------------------------------
 Z = 7
 TX0, TX1, TY0, TY1 = 55, 80, 25, 52
 mosaic = np.full(((TY1 - TY0 + 1) * 256, (TX1 - TX0 + 1) * 256), np.nan, np.float32)
@@ -90,6 +91,10 @@ fy = (1 - np.log(np.tan(np.radians(LAT)) + 1 / np.cos(np.radians(LAT))) / math.p
 ix = np.clip(((fx - TX0) * 256).astype(int), 0, mosaic.shape[1] - 1)
 iy = np.clip(((fy - TY0) * 256).astype(int), 0, mosaic.shape[0] - 1)
 p_elev = mosaic[iy, ix]
+# Land samples take the Copernicus DEM GLO-90 at its 1/4 overview (about 360 m; pipeline/copdem.py). The sea keeps
+# Terrarium, the only one of the two with bathymetry (water depth and shelf colours).
+p_dem = copdem.sample(LON, LAT, level=2, mask=p_land)
+p_elev = np.where(p_land & np.isfinite(p_dem), p_dem, p_elev).astype(np.float32)
 
 # --- land cover (ESA WorldCover 2021, read at 1/32 resolution ~300 m) ------------------------------------------
 p_wc = np.zeros(N, np.uint8)
