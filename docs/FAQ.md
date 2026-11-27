@@ -89,6 +89,10 @@ Every source is listed in `data/sources.json` and in the Almanac's *Sources* pag
 | GDP | Eurostat `nama_10r_3gdp` | 2023 to 2024 | CC BY 4.0 |
 | Jobs and value added by industry | Eurostat `nama_10r_3empers`, `nama_10r_3gva` | 2022 to 2024 | CC BY 4.0 |
 | Unemployment | Eurostat LFS `lfst_r_lfu3rt` (NUTS 2) | to 2025 | CC BY 4.0 |
+| Employment rate | Eurostat LFS `lfst_r_lfe2emprt`, ages 20–64 (NUTS 2) | to 2025 | CC BY 4.0 |
+| Vineyards, olive groves, orchards | Eurostat Integrated Farm Statistics `ef_lus_allcrops` (NUTS 2) | 2023 survey (2020 where 2023 is missing) | CC BY 4.0 |
+| Temperature, warming, rainfall, rainfall change | Copernicus C3S [ERA5-Land monthly averaged data](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land-monthly-means), `reanalysis-era5-land-monthly-means` | 1961–1990 and 1996–2025, 0.1° grid | CC BY 4.0 |
+| Forest height | Meta and WRI [Global Canopy Height Map](https://registry.opendata.aws/dataforgood-fb-forests/) (Tolan et al. 2024), downsampled `alsgedi_global_v6_float_epsg4326_v3_10deg` average-height tiles | 2024 release (mostly 2018–2020 imagery) | CC BY 4.0 |
 | Metro regions | Eurostat metropolitan regions (`met_pjanaggr3` and the metro typology workbook) | 2016 typology on 2024 NUTS | CC BY 4.0 |
 | Municipal populations | Eurostat GISCO LAU | 2021 to 2024 | © EuroGeographics for the boundaries |
 | UK economy | ONS regional GDP, Nomis BRES | 2024 | Open Government Licence v3.0 |
@@ -115,10 +119,13 @@ display unit. It is never finer than the data behind it.
 | Layer | Native unit | Time |
 |---|---|---|
 | Hot days, tropical nights, seasonal temperature and rain | NUTS 2 region (340 units in the ECDE file) | 1991–2020 average; yearly path 2025–2050 |
+| Temperature, warming, rainfall, rainfall change | ERA5-Land 0.1° grid (about 9 km), sampled every 2 km inside each hex | 1996–2025 mean, against 1961–1990 |
+| Forest height | 1/4000° cells (about 25 m) of the canopy height map, sampled every 1 km inside each hex | static (mostly 2018–2020 imagery) |
+| Vineyards, olive groves, orchards | NUTS 2 region | 2023 (2020 for some regions) |
 | Low-lying land | samples every 500 m on zoom 9 elevation tiles (pixels of roughly 200 to 300 m in Europe) | static |
 | Terrain and land cover | samples every 4 km inside each hex | elevation static; WorldCover 2021 |
 | Most socio-economic lenses | NUTS 3 region | latest year Eurostat publishes, mostly 2023 to 2025 |
-| Unemployment, household income, life expectancy, R&D, some others | NUTS 2 region | as above |
+| Unemployment, employment rate, household income, life expectancy, R&D, some others | NUTS 2 region | as above |
 | Time dial | NUTS 3 (unemployment: NUTS 2) | yearly, 2000 to the latest year |
 
 NUTS 2 regions are large: often a whole province or small country, typically 800,000 to 3 million people. Anything
@@ -145,6 +152,20 @@ the point falls just outside the generalised polygons, as it can on a coast, it 
 country. Each hex then shows the value of its own NUTS 3 region (`per_hex()` and `unit_of` in
 `pipeline/build_climate.py`). There is no averaging across a hex, so a hex on a NUTS 2 border shows one region's
 climate, not a blend. Every region of the map gets a climate unit.
+
+**How do the lenses in `build_more_lenses.py` get onto hexes?**
+Children, Growth since 2000 and Employment rate use the same population-weighted mean as the other socio-economic
+lenses, with the hex's regions read from a 2 km lattice of samples. Vineyards, Olive groves and Orchards are shares of
+land, so they use an area-weighted mean instead. Temperature, Warming, Rainfall and Rainfall change are the mean of the
+hex's 2 km samples on the ERA5-Land grid; sea cells next to the coast are filled from their land neighbours first, so
+small islands get a value. Forest height is computed per hex from 1 km samples of the canopy height map: samples at
+least 5 m tall count as trees, and the hex shows their mean height. A hex where under 3% of the samples are trees
+shows no value.
+
+**Why does Growth since 2000 sometimes show a larger region?**
+Eurostat backcasts population onto today's NUTS 2024 borders, but not for every redrawn region. Where a NUTS 3 region
+has no 2000 figure, it takes the change of the smallest region above it (NUTS 2, NUTS 1, then the country) that has
+both years. The lens's note says how many regions this affects.
 
 **How does low-lying land get onto hexes?**
 It is computed per hex from the 500 m samples: the share of the hex's land samples at or below 5 m. Region totals add
@@ -336,6 +357,14 @@ use against the original table.
 
 ## 10. Known gaps and caveats
 
+- **Reanalysis rainfall trends.** Rainfall change compares two 30-year means of ERA5-Land, which inherits ERA5's
+  precipitation. Reanalysis rain has known biases and its long-term trends are less certain than temperature trends
+  (the observing system changed a lot since the 1960s). Read changes of a few per cent as no clear change.
+- **Canopy height underestimates tall forests.** The Meta and WRI model saturates in the tallest stands, and the
+  downsampled tiles average out single tall trees. Compare regions with each other rather than reading absolute heights.
+- **Farm crops are per NUTS 2 region and per farm.** Vineyards, olive groves and orchards count the area on farms in the
+  Integrated Farm Statistics, so small non-farm plots are missed, and a large region shows one share for every hex.
+  There is no survey for the UK after Brexit, Türkiye, Serbia, Albania, North Macedonia, Montenegro or Liechtenstein.
 - **Older climate data.** ECDE v2.0 uses CMIP5-era RCPs and EURO-CORDEX, not CMIP6 SSPs.
 - **The base period lags.** "Today" in the climate lenses is the 1991–2020 average.
 - **Coarse climate units.** Climate is per NUTS 2 region, so urban heat islands and altitude differences within a
@@ -357,7 +386,7 @@ use against the original table.
 ## 11. Licences and how to cite
 
 **Data.** The data in `data/` is derived from the sources above and keeps their terms. Most are CC BY 4.0
-(Eurostat, ESA WorldCover, WRI, Copernicus), so they need attribution. UK data is under the Open Government Licence
+(Eurostat, ESA WorldCover, WRI, Copernicus, the Meta and WRI canopy height map), so they need attribution. UK data is under the Open Government Licence
 v3.0, administrative boundaries are © EuroGeographics, and Natural Earth is public domain. For anything derived from the
 climate data, Copernicus requires a statement like the one in the Almanac: *"Contains modified Copernicus Climate
 Change Service information [year]. Neither the European Commission nor ECMWF is responsible for any use that may be
@@ -367,6 +396,12 @@ made of the Copernicus information or data it contains."*
 [usaciv](https://github.com/karpathy/usaciv), under the MIT licence (`LICENSE-usaciv`). This repository does not yet
 have a licence file of its own for the new pipeline and EU changes. Ask the maintainer before reusing that code beyond
 what the MIT-licensed parts allow.
+
+For the Forest height lens, cite Tolan, J. et al. (2024), *Very high resolution canopy height maps from RGB imagery
+using self-supervised vision transformer and convolutional decoder trained on aerial lidar*, Remote Sensing of
+Environment 300, 113888 (CC BY 4.0). For the ERA5-Land lenses, cite Muñoz Sabater, J. (2019), *ERA5-Land monthly
+averaged data from 1950 to present*, Copernicus Climate Change Service (C3S) Climate Data Store, DOI
+10.24381/cds.68d2bb30.
 
 **How to cite.** There is no paper. If you use the app or its derived data, cite:
 
@@ -390,11 +425,12 @@ the README in `raw/`, then from `pipeline/`:
 ```
 python3 build_world.py && python3 build_econ.py && python3 build_lenses.py && python3 build_sites.py \
   && python3 build_people.py && python3 build_sources.py && python3 build_history.py \
-  && python3 build_advisor.py && python3 build_climate.py
+  && python3 build_advisor.py && python3 build_climate.py && python3 build_more_lenses.py
 ```
 
 **Do I need a Copernicus key?**
-Only for `build_climate.py`, and only at build time. Create a free CDS account, accept the dataset's CC BY licence on its
+Only for `build_climate.py` and `build_more_lenses.py` (ERA5-Land), and only at build time. For ERA5-Land, also accept
+its licence on [its download page](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land-monthly-means?tab=download). Create a free CDS account, accept the dataset's CC BY licence on its
 download page, and put your personal access token in `CDSAPI_KEY`. `pipeline/cds.py` sends it only to the CDS API. It is
 never written to `data/`, `raw/` or the site, and the browser never contacts the CDS. Downloads are cached in `raw/cds/`.
 Requests pin `version: v2_0`.
