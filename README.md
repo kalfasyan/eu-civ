@@ -15,7 +15,7 @@ municipality's population (Eurostat GISCO LAU), not their whole region's.
 
 ![EU Civ map](docs/screenshot.jpg)
 
-This is an adaptation of Andrej Karpathy's [usaciv](https://github.com/karpathy/usaciv) (MIT, see
+This is an adaptation of Andrej Karpathy's [usaciv](https://karpathy.ai/usaciv/) (MIT, see
 `LICENSE-usaciv`). The frontend is his engine with EU wording, euros and the games and military advisor removed;
 the data pipeline in `pipeline/` is new.
 
