@@ -28,16 +28,19 @@ export function initPedia(data) {
       number comes from public data (mostly Eurostat; the ONS for the UK), listed under <i>Sources</i>.</p>
       <h4>How it's built</h4>
       <p>The 27 EU member states, plus every other country Eurostat maps by region (the United Kingdom, Switzerland, Norway, Iceland,
-      Liechtenstein, Türkiye, Serbia, North Macedonia, Montenegro and Albania), are projected (ETRS89 Lambert azimuthal equal-area, EPSG:3035) and cut into ${data.world.grid.cols}×${data.world.grid.rows}
+      Liechtenstein, Türkiye, Serbia, North Macedonia, Montenegro and Albania), plus Bosnia and Herzegovina and Kosovo*, which have no NUTS regions
+      and are drawn as one region each from Eurostat's national figures, are projected (ETRS89 Lambert azimuthal equal-area, EPSG:3035) and cut into ${data.world.grid.cols}×${data.world.grid.rows}
       hexes, each ${data.world.grid.radius * 2} km corner to corner. Each hex belongs to the country and NUTS 3 region that most of its sample points
       (one every 4 km) fall in. Terrain comes from elevation and ESA WorldCover land-cover samples inside each hex. The outermost regions
       (Canary Islands, Azores, Madeira, the French overseas departments), Ceuta and Melilla, and Svalbard and Jan Mayen are left off, like the original left off Alaska and Hawaii.</p>
       <p><b>Cities</b> are Eurostat's metropolitan regions (agglomerations of 250,000+ people built from NUTS 3 regions), placed at their principal city.
       Their numbers cover the whole metro region, not just the city proper. Where Eurostat defines no metro regions (Türkiye, the Western Balkans, Iceland,
-      Liechtenstein), a city is placed at each place of 250,000+ people and at the capital. Leuven and Edessa are added as towns. These single-place
+      Liechtenstein), a city is placed at each place of 250,000+ people and at the capital, one per region (so Sarajevo and Pristina). Leuven and Edessa are added as towns. These single-place
       cities show the municipality's own population (jobs and GDP are their region's, scaled by population share), except in Türkiye,
       where a metropolitan municipality covers its whole province.
-      <b>Regions</b> are the ${data.world.counties.length.toLocaleString("en")} NUTS 3 regions (the map's "counties"); the UK's are its NUTS 2021 (ITL 2021) regions.</p>
+      <b>Regions</b> are the ${data.world.counties.length.toLocaleString("en")} NUTS 3 regions (the map's "counties"); the UK's are its NUTS 2021 (ITL 2021) regions, and Bosnia and Herzegovina and Kosovo are one region each.
+      Where Eurostat publishes no national figure for those two, the value is left empty. <i>*This designation is without prejudice to positions
+      on status, and is in line with UNSCR 1244/1999 and the ICJ Opinion on the Kosovo declaration of independence.</i></p>
       <h4>Time, climate and the future</h4>
       <p>Lenses with history (Population, GDP vs EU average, Unemployment, Farm and Factory jobs) have a <b>time dial</b> that
       replays Eurostat's yearly series from 2000 to the latest year, on today's borders. The <b>Climate</b> lenses (Hot days,

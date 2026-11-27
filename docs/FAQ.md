@@ -30,10 +30,11 @@ Contents
 
 **What area does the map cover?**
 The 27 EU member states plus every other country Eurostat maps by NUTS region: the United Kingdom, Switzerland, Norway,
-Iceland, Liechtenstein, Türkiye, Serbia, North Macedonia, Montenegro and Albania (37 countries, 1,499 NUTS 3 regions).
-The outermost regions (Canary Islands, Azores, Madeira, the French overseas departments), Ceuta and Melilla, and
-Svalbard and Jan Mayen are left off (`EXCLUDED_PREFIXES` in `pipeline/common.py`). Countries outside NUTS, such as
-Bosnia and Herzegovina, Kosovo and Ukraine, have no data on the map.
+Iceland, Liechtenstein, Türkiye, Serbia, North Macedonia, Montenegro and Albania (1,499 NUTS 3 regions), plus Bosnia and
+Herzegovina and Kosovo\*, which have no NUTS regions and are one region each (39 countries, 1,501 regions; see
+[below](#bosnia-and-herzegovina-and-kosovo)). The outermost regions (Canary Islands, Azores, Madeira, the French overseas
+departments), Ceuta and Melilla, and Svalbard and Jan Mayen are left off (`EXCLUDED_PREFIXES` in `pipeline/common.py`).
+Other countries outside NUTS, such as Ukraine, Moldova and Belarus, have no data on the map.
 
 **Which borders are used?**
 NUTS 2024 for every country except the UK, which uses NUTS 2021 (the same as ITL 2021), because the UK left NUTS after
@@ -44,12 +45,13 @@ matches to the 2024, 2021 and 2016 NUTS 2 polygons (see [section 4](#4-how-value
 **How does it choose which cities to show? Is it by size?**
 Mostly by an official definition, and then by size when deciding what fits on screen.
 
-- *Which places count as cities (325 in total).* In countries covered by Eurostat's
+- *Which places count as cities (327 in total).* In countries covered by Eurostat's
   [metropolitan regions](https://ec.europa.eu/eurostat/web/metropolitan-regions) typology, each metro region is one city
-  (288 of the 325). A metro region is a group of NUTS 3 regions built around a functional urban area of at least 250,000
+  (288 of the 327). A metro region is a group of NUTS 3 regions built around a functional urban area of at least 250,000
   people. Its numbers cover the whole metro region, not just the city proper, so "Paris" means the Paris metro region.
   The banner sits on the principal city, found by name in Natural Earth's populated places.
-- *Countries with no metro regions* (Türkiye, Serbia, North Macedonia, Montenegro, Albania, Iceland and Liechtenstein):
+- *Countries with no metro regions* (Türkiye, Serbia, North Macedonia, Montenegro, Albania, Bosnia and Herzegovina,
+  Kosovo, Iceland and Liechtenstein):
   a city is placed at every Natural Earth place of 250,000+ people and at each capital, one per NUTS 3 region.
 - *Two towns added by name:* Leuven and Edessa.
 - *Population of single-place cities.* These cities (the last two groups) do not take the population of their whole
@@ -73,6 +75,53 @@ exact industry groups. They are a way to read the data, not extra data.
 **Where is the in-app documentation?**
 The **Almanac** button opens pages on how the map is built, each lens (with its source) and every source with links and
 licences (`data/sources.json`). The **?** button lists the controls and links to this FAQ.
+
+### Bosnia and Herzegovina and Kosovo
+
+Eurostat has no NUTS regions for either country, so nothing below country level. `pipeline/build_ba_xk.py` adds each
+as one region (`BA000`, `XK000`), the way Montenegro is a single NUTS 3 region, from Eurostat's national tables (both
+report to Eurostat as candidate or potential candidate countries). It runs after every other step and leaves the other
+regions as they are.
+
+- *Borders.* GISCO's 1:10 million country outlines, the same file the map uses for land. GISCO draws Kosovo inside
+  Serbia's outline and Serbia's NUTS regions leave it out, so Kosovo is Serbia's outline minus Serbia's NUTS 3 regions.
+  Only hexes that were land off the map before can join, by the usual majority rule: 49 hexes for Bosnia and
+  Herzegovina and 11 for Kosovo. Terrain, land cover, rivers, roads and rail follow the same rules as everywhere else.
+- *Cities.* The rule for countries without metro regions, one city per region: Sarajevo and Pristina, the capitals.
+  Banja Luka (about 220,000 in Natural Earth) is under the 250,000 threshold, and Mostar, Tuzla, Zenica and Prizren are
+  smaller still. GISCO has no municipal populations for either country, so both cities take Natural Earth's city-proper
+  estimate, which for Sarajevo (about 629,000) is closer to its urban area than to the City of Sarajevo.
+- *What is filled in.* Population (`demo_gind`), GDP (`nama_10_gdp`) and land area (`reg_area3` for Kosovo; Bosnia
+  and Herzegovina's from the GISCO 1:1 million outline) for both. For Bosnia and Herzegovina also GDP per person in
+  PPS and against the EU average (`nama_10_pc`), jobs and value added by industry and so all five yields
+  (`nama_10_a10_e`, `nama_10_a10`), unemployment (`lfsa_urgan`), degrees (`edat_lfse_03`), R&D (`rd_e_gerdtot`),
+  high-tech jobs (`htec_emp_nat2`), broadband (`isoc_ci_it_h`), employment rate (`lfsa_ergan`), growth since 2000,
+  pay (SES 2022), price level and rent in Sarajevo. For Kosovo also median age, age groups and children
+  (`demo_pjanind`, `demo_pjan`), value added by industry, broadband and rent in Pristina. Forest height comes from the
+  canopy height map for every hex of both, as elsewhere. A national figure is the same on all of the country's hexes.
+- *What is empty.* Anything Eurostat does not publish for the country stays empty rather than estimated: for both,
+  household income, poverty, life expectancy (no year since 2020), born abroad, tourism, population growth since 2021,
+  occupations, industry districts, the climate indicators (the ECDE file has NUTS 2 regions only), vineyards, olive
+  groves and orchards (no farm survey), and ports and airports (no Eurostat traffic data). For Bosnia and Herzegovina
+  also median age, age groups and children; for Kosovo also jobs (so Food, Production, Science and Culture),
+  unemployment, employment rate, degrees, R&D, pay and growth since 2000.
+- *Not computed yet.* Temperature, Warming, Rainfall and Rainfall change come from ERA5-Land, which covers both
+  countries, but `build_ba_xk.py` does not download it (that needs a CDS key), so their hexes are empty on these four
+  lenses for now.
+- *Years.* Eurostat's latest population for Kosovo is 1 January 2022, before the 2024 census, while the rest of the map
+  uses 2025. Bosnia and Herzegovina's series breaks in 2016, when the 2013 census replaced older estimates (about 8%
+  fewer people), and has no 2020 or 2021 values; the time dial shows that drop as it is published.
+- *Sites.* Two of the power plants the WRI database lists for the two countries pass the usual size thresholds: the
+  Čapljina and Višegrad hydro plants. Kosovo A and B (800 and 678 MW) are under the 1,000 MW coal threshold. The Old
+  Bridge Area of Mostar (2005) is Bosnia and Herzegovina's earliest cultural World Heritage site, so it takes a
+  first-round wonder place. The 60-wonder cap then drops the last second-round pick, Studenica Monastery in Serbia.
+  UNESCO lists the Medieval Monuments in Kosovo under Serbia, inscribed in 2004, after the second round's cut-off
+  (1998), so they are not a wonder.
+- *Totals.* The map-wide totals and EU comparisons (`data/nation.json`, the EU reference shares of the City View and
+  districts) are unchanged and cover the NUTS regions only.
+
+\*This designation is without prejudice to positions on status, and is in line with UNSCR 1244/1999 and the ICJ
+Opinion on the Kosovo declaration of independence.
 
 ---
 
@@ -318,9 +367,9 @@ other region is estimated from the nearest surveyed city by household income and
 as estimates.
 
 **Which countries are missing?**
-There is no comparable pay data for the UK, Türkiye, Liechtenstein or Montenegro, so they are left out of the Money
-part. There is no occupation census for the UK, Türkiye, Serbia, Albania, North Macedonia or Montenegro, so they are
-left out of the Jobs part. The advisor is a way to explore the data, not advice.
+There is no comparable pay data for the UK, Türkiye, Liechtenstein, Montenegro or Kosovo, so they are left out of the
+Money part. There is no occupation census for the UK, Türkiye, Serbia, Albania, North Macedonia, Montenegro, Bosnia and
+Herzegovina or Kosovo, so they are left out of the Jobs part. The advisor is a way to explore the data, not advice.
 
 ---
 
@@ -365,7 +414,7 @@ use against the original table.
   downsampled tiles average out single tall trees. Compare regions with each other rather than reading absolute heights.
 - **Farm crops are per NUTS 2 region and per farm.** Vineyards, olive groves and orchards count the area on farms in the
   Integrated Farm Statistics, so small non-farm plots are missed, and a large region shows one share for every hex.
-  There is no survey for the UK after Brexit, Türkiye, Serbia, Albania, North Macedonia, Montenegro or Liechtenstein.
+  There is no survey for the UK after Brexit, Türkiye, Serbia, Albania, North Macedonia, Montenegro, Bosnia and Herzegovina, Kosovo or Liechtenstein.
 - **Older climate data.** ECDE v2.0 uses CMIP5-era RCPs and EURO-CORDEX, not CMIP6 SSPs.
 - **The base period lags.** "Today" in the climate lenses is the 1991–2020 average.
 - **Coarse climate units.** Climate is per NUTS 2 region, so urban heat islands and altitude differences within a
@@ -376,7 +425,9 @@ use against the original table.
   the 5 m threshold.
 - **Populations are fixed.** Population exposure uses 2025 populations held constant to 2050.
 - **Coverage.** Outermost regions are excluded. UK data comes from the ONS and Nomis, with different methods and dates
-  than Eurostat. The Western Balkans and Türkiye have no metro regions and no occupation census.
+  than Eurostat. The Western Balkans and Türkiye have no metro regions and no occupation census. Bosnia and Herzegovina
+  and Kosovo have national figures only, with many measures empty (see
+  [section 1](#bosnia-and-herzegovina-and-kosovo)).
 - **Cities are metro regions.** Most "city" figures are metro-region totals, not the city proper.
 - **Mixed reference years.** Different lenses come from different years (mostly 2021 to 2025). Each lens names its source
   in the Almanac.
@@ -426,7 +477,7 @@ the README in `raw/`, then from `pipeline/`:
 ```
 python3 build_world.py && python3 build_econ.py && python3 build_lenses.py && python3 build_sites.py \
   && python3 build_people.py && python3 build_sources.py && python3 build_history.py \
-  && python3 build_advisor.py && python3 build_climate.py && python3 build_more_lenses.py
+  && python3 build_advisor.py && python3 build_climate.py && python3 build_more_lenses.py && python3 build_ba_xk.py
 ```
 
 **Do I need a Copernicus key?**
