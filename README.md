@@ -17,6 +17,8 @@ can find your way (`data/places.json`, from Eurostat GISCO LAU municipalities an
 
 **Live:** https://kalfasyan.github.io/eu-civ/
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/kalfasyan)
+
 ![EU Civ map](docs/screenshot.jpg)
 
 This is an adaptation of Andrej Karpathy's [usaciv](https://karpathy.ai/usaciv/) (MIT, see
